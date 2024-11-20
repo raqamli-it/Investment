@@ -98,16 +98,14 @@ WSGI_APPLICATION = 'einvestment.wsgi.application'
 ASGI_APPLICATION = "einvestment.asgi.application"
 
 # mysite/settings.py
-# Channels
 CHANNEL_LAYERS = {
-    "default": {
-        "BACKEND": "channels_redis.core.RedisChannelLayer",
-        "CONFIG": {
-            "hosts": [("127.0.0.1", 6377)],
+    'default': {
+        'BACKEND': 'channels_redis.core.RedisChannelLayer',
+        'CONFIG': {
+            "hosts": [("redis", 6379)],  # Redis konteyner nomi va porti
         },
     },
 }
-
 
 SESSION_ENGINE = 'django.contrib.sessions.backends.cached_db'  # Sessiyalarni cache yoki database-da saqlash
 CACHES = {
@@ -139,33 +137,29 @@ CSRF_TRUSTED_ORIGINS = [
 # Database
 # https://docs.djangoproject.com/en/4.2/ref/settings/#databases
 
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
-    }
-}
-
 # DATABASES = {
 #     'default': {
-#         'ENGINE': 'django.db.backends.postgresql',
-#         'NAME': 'einvestment',
-#         'USER': 'postgres',
-#         'PASSWORD': os.getenv('DB_PASSWORD'),
-#         'HOST': os.getenv('DB_HOST'),
-#         'PORT': 5432,
+#         'ENGINE': 'django.db.backends.sqlite3',
+#         'NAME': BASE_DIR / 'db.sqlite3',
 #     }
 # }
 
+DATABASES = {
+    'default': {
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': 'einvestment',
+        'USER': 'user_einvestment',
+        'PASSWORD': 'password_einvestment',
+        'HOST': 'einvestment_db',
+        'PORT': 5432,
+    }
+}
 
 FILE_UPLOAD_MAX_MEMORY_SIZE = 52428800
-
 
 MESSAGE_TAGS = {
     'error': 'danger',  # Xato xabarlari uchun bootstrap xatolari
 }
-
-
 
 # Password validation
 # https://docs.djangoproject.com/en/4.2/ref/settings/#auth-password-validators
@@ -193,7 +187,6 @@ EMAIL_PORT = 587
 EMAIL_HOST_USER = config('EMAIL_HOST_USER')
 EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD')
 
-
 SOCIAL_AUTH_GOOGLE_PLUS_KEY = config('SOCIAL_AUTH_GOOGLE_PLUS_KEY')
 SOCIAL_AUTH_GOOGLE_PLUS_SECRET = config('SOCIAL_AUTH_GOOGLE_PLUS_SECRET')
 
@@ -219,7 +212,7 @@ LANGUAGES = (
     ('en', _('English')),
 )
 
-TIME_ZONE = 'UTC'
+TIME_ZONE = 'Asia/Tashkent'
 
 USE_I18N = True
 

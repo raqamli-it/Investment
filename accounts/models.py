@@ -39,6 +39,7 @@ class User(AbstractUser):
     photo = models.ImageField(upload_to='files/users_photo/')
     tin = models.CharField(max_length=14, unique=True)
     is_physic = models.BooleanField(default=True)
+    is_online = models.BooleanField(default=False)  # Online holat
 
     USERNAME_FIELD = 'email'
     REQUIRED_FIELDS = []

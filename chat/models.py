@@ -1,32 +1,35 @@
-from accounts.models import User
 from django.db import models
+from django.contrib.auth import get_user_model
 
+User = get_user_model()
 
-# class User(User):
-#     pass
-
-class Room(models.Model):
-    name = models.CharField(max_length=128)
-    user = models.ManyToManyField(to=User, blank=True, related_name='room')
-
-    def join(self, user):
-        self.user.add(user)
-        self.save()
-
-    def leave(self, user):
-        self.user.remove(user)
-        self.save()
+class Chat(models.Model):
+    user1 = models.ForeignKey(User, related_name='chats_user1', on_delete=models.CASCADE)
+    user2 = models.ForeignKey(User, related_name='chats_user2', on_delete=models.CASCADE)
+    created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
-        return f'{self.name} '
+        return f"Chat between {self.user1} and {self.user2}"
+
+    @classmethod
+    def get_or_create_chat(cls, user1, user2):
+        """Get or create a chat between two users"""
+        chat, created = cls.objects.get_or_create(
+            user1=user1,
+            user2=user2
+        ) if user1.id < user2.id else cls.objects.get_or_create(
+            user1=user2,
+            user2=user1
+        )
+        return chat
 
 
 class Message(models.Model):
-    user = models.ForeignKey(to=User, on_delete=models.CASCADE, related_name='message', null=True, blank=True)
-    room = models.ForeignKey(to=Room, on_delete=models.CASCADE, related_name='message', blank=True, null=True)
-    content = models.CharField(max_length=512)
-    timestamp = models.DateTimeField(auto_now_add=True)
-    is_viewed = models.BooleanField(default=False, blank=True)
+    chat = models.ForeignKey(Chat, related_name='messages', on_delete=models.CASCADE)
+    sender = models.ForeignKey(User, on_delete=models.CASCADE)
+    content = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    is_read = models.BooleanField(default=False)  # O'qilgan status
 
     def __str__(self):
-        return f'{self.user.email if self.user else "Anonymous"} | {self.room.name}'
+        return f"Message from {self.sender} in chat {self.chat.id}"

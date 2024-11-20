@@ -1,13 +1,9 @@
 from rest_framework import serializers
-from . import models
-
+from .models import Message
 
 class MessageSerializer(serializers.ModelSerializer):
+    sender_name = serializers.CharField(source='sender.username', read_only=True)
+
     class Meta:
-        model = models.Message
-        fields = ['id', 'content', 'timestamp', 'is_viewed', 'user', 'room']
-
-
-class UnreadMessageCountSerializer(serializers.Serializer):
-    unread_count = serializers.IntegerField()
-    last_message = serializers.DictField()
+        model = Message
+        fields = ['id', 'chat', 'sender', 'sender_name', 'content', 'created_at']
