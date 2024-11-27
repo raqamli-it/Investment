@@ -106,7 +106,7 @@ CHANNEL_LAYERS = {
     'default': {
         'BACKEND': 'channels_redis.core.RedisChannelLayer',
         'CONFIG': {
-            "hosts": [("redis", 6377)],  # Redis konteyner nomi va porti
+            "hosts": [("redis", 6379)],  # Redis konteyner nomi va porti
             # "hosts": [("127.0.0.1", 6377)],  # Redis konteyner nomi va porti
         },
     },
