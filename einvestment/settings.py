@@ -12,7 +12,7 @@ https://docs.djangoproject.com/en/4.2/ref/settings/
 
 from pathlib import Path
 from datetime import timedelta
-from decouple import config
+from decouple import config, Csv
 from django.utils.translation import gettext_lazy as _
 
 import os
@@ -185,11 +185,12 @@ EMAIL_HOST = 'smtp.gmail.com'
 EMAIL_USE_TLS = True
 EMAIL_PORT = 587
 
-EMAIL_HOST_USER = config('EMAIL_HOST_USER')
-EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD')
+EMAIL_HOST_USER = config('EMAIL_HOST_USER', default='default_email@example.com')
+EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD', default='default_email_password')
 
-SOCIAL_AUTH_GOOGLE_PLUS_KEY = config('SOCIAL_AUTH_GOOGLE_PLUS_KEY')
-SOCIAL_AUTH_GOOGLE_PLUS_SECRET = config('SOCIAL_AUTH_GOOGLE_PLUS_SECRET')
+SOCIAL_AUTH_GOOGLE_PLUS_KEY = config('SOCIAL_AUTH_GOOGLE_PLUS_KEY', default='default_google_plus_key')
+
+SOCIAL_AUTH_GOOGLE_PLUS_SECRET = config('SOCIAL_AUTH_GOOGLE_PLUS_SECRET', default='default_google_plus_secret')
 
 SOCIAL_AUTH_GOOGLE_PLUS_AUTH_EXTRA_ARGUMENTS = {
     'access_type': 'offline'
