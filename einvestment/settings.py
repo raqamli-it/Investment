@@ -155,7 +155,8 @@ DATABASES = {
     }
 }
 
-FILE_UPLOAD_MAX_MEMORY_SIZE = 52428800
+FILE_UPLOAD_MAX_MEMORY_SIZE = 209715200  # 200 MB (baytlarda)
+DATA_UPLOAD_MAX_MEMORY_SIZE = 209715200  # 200 MB
 
 MESSAGE_TAGS = {
     'error': 'danger',  # Xato xabarlari uchun bootstrap xatolari
