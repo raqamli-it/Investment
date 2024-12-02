@@ -717,8 +717,8 @@ class SmartNoteUpdateSerializer(serializers.ModelSerializer):
 
     def update(self, instance, validated_data):
         # Yangilash uchun maydonlarni ajratish
-        images_data = validated_data.pop('images', [])
-        videos_data = validated_data.pop('videos', [])
+        images_data = validated_data.pop('images', None)
+        videos_data = validated_data.pop('videos', None)
 
         # Yangilash
         instance.main_data = validated_data.get('main_data', instance.main_data)
@@ -730,14 +730,14 @@ class SmartNoteUpdateSerializer(serializers.ModelSerializer):
         instance.save()
 
         # Rasmlar va videolarni yangilash yoki qo'shish
-        if images_data is not None:
-            instance.images.all().delete()  # Oldingi rasmlarni o'chirish (agar kerak bo'lsa)
+        if images_data is not None:  # Faqat yangi rasmlar yuborilganida
+            instance.images.all().delete()  # Oldingi rasmlarni o'chirish
             for image_file in images_data:
                 if image_file:
                     Image.objects.create(smart_note=instance, image=image_file)
 
-        if videos_data is not None:
-            instance.videos.all().delete()  # Oldingi videolarni o'chirish (agar kerak bo'lsa)
+        if videos_data is not None:  # Faqat yangi videolar yuborilganida
+            instance.videos.all().delete()  # Oldingi videolarni o'chirish
             for video_file in videos_data:
                 if video_file:
                     Video.objects.create(smart_note=instance, video=video_file)

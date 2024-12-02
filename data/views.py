@@ -976,7 +976,8 @@ class SmartNoteUpdateView(generics.CreateAPIView):
             # Yangilash jarayonini amalga oshirish
             self.perform_update(serializer)
 
-            headers = self.get_success_headers(serializer.data)
+            updated_serializer = self.get_serializer(instance)
+            headers = self.get_success_headers(updated_serializer.data)
             return Response(serializer.data, status=status.HTTP_200_OK, headers=headers)
         else:
             return Response({"detail": "Smart Note not found."}, status=status.HTTP_404_NOT_FOUND)
