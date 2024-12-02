@@ -79,7 +79,7 @@ class MainData(models.Model):
 
 class InformativeData(models.Model):
     product_info = models.CharField(max_length=256, default='')
-    project_capacity = models.CharField(max_length=30, default='')
+    project_capacity = models.CharField(max_length=200, default='')
     formation_date = models.DateTimeField(blank=True, null=True)
     total_area = models.DecimalField(max_digits=6, decimal_places=0, default=0)
     building_area = models.DecimalField(max_digits=6, decimal_places=0, default=0)
