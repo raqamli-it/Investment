@@ -1,8 +1,20 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated
 from .models import Chat, Message
-from .serializers import MessageSerializer
+from .serializers import MessageSerializer, ChatSerializer
+from rest_framework import viewsets
+from rest_framework.permissions import IsAuthenticated
+
+
+class ChatViewSet(viewsets.ReadOnlyModelViewSet):
+    serializer_class = ChatSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        user = self.request.user
+        # Foydalanuvchining barcha chatlarini olish
+        return Chat.objects.filter(user1=user).union(Chat.objects.filter(user2=user))
+
 
 class ChatMessagesAPIView(APIView):
     permission_classes = [IsAuthenticated]

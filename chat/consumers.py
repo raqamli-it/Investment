@@ -13,7 +13,7 @@ User = get_user_model()
 import redis
 
 # Redis ulanishini sozlash
-# redis_client = redis.StrictRedis.from_url("redis://127.0.0.1:6379/0", decode_responses=True)
+# redis_client = redis.StrictRedis.from_url("redis://127.0.0.1:6377/0", decode_responses=True)
 redis_client = redis.StrictRedis.from_url("redis://redis:6379/0", decode_responses=True)
 
 

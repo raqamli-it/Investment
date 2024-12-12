@@ -708,17 +708,33 @@ class SmartNoteUpdateSerializer(serializers.ModelSerializer):
         required=False,
         allow_null=True
     )
+
+    remove_images = serializers.ListField(
+        child=serializers.IntegerField(),
+        write_only=True,
+        required=False,
+        allow_null=True
+    )
+    remove_videos = serializers.ListField(
+        child=serializers.IntegerField(),
+        write_only=True,
+        required=False,
+        allow_null=True
+    )
     images_list = ImageSerializer(many=True, read_only=True)
     videos_list = VideoSerializer(many=True, read_only=True)
     class Meta:
         model = SmartNote
         fields = ('text', 'name', 'create_date_note', 'custom_id', 'images', 'videos',
+                  'remove_images', 'remove_videos',
                   'images_list', 'videos_list')
 
     def update(self, instance, validated_data):
         # Yangilash uchun maydonlarni ajratish
         images_data = validated_data.pop('images', None)
         videos_data = validated_data.pop('videos', None)
+        remove_images = validated_data.pop('remove_images', [])
+        remove_videos = validated_data.pop('remove_videos', [])
 
         # Yangilash
         instance.main_data = validated_data.get('main_data', instance.main_data)
@@ -729,18 +745,27 @@ class SmartNoteUpdateSerializer(serializers.ModelSerializer):
         instance.create_date_note = validated_data.get('create_date_note', instance.create_date_note)
         instance.save()
 
-        # Rasmlar va videolarni yangilash yoki qo'shish
-        if images_data is not None:  # Faqat yangi rasmlar yuborilganida
-            instance.images.all().delete()  # Oldingi rasmlarni o'chirish
+        # Rasmlarni qo'shish yoki o'chirish
+        if images_data is not None:
+            # Yangi rasmlarni qo'shish
             for image_file in images_data:
                 if image_file:
                     Image.objects.create(smart_note=instance, image=image_file)
 
-        if videos_data is not None:  # Faqat yangi videolar yuborilganida
-            instance.videos.all().delete()  # Oldingi videolarni o'chirish
+        # Eski rasmlarni o'chirish uchun request orqali ID yuborilgan bo'lsa
+        if remove_images:
+            instance.images.filter(id__in=remove_images).delete()
+
+        # Videolarni qo'shish yoki o'chirish
+        if videos_data is not None:
+            # Yangi videolarni qo'shish
             for video_file in videos_data:
                 if video_file:
                     Video.objects.create(smart_note=instance, video=video_file)
+
+        # Eski videolarni o'chirish uchun request orqali ID yuborilgan bo'lsa
+        if remove_videos:
+            instance.videos.filter(id__in=remove_videos).delete()
 
         return instance
 

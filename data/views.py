@@ -58,7 +58,6 @@ class MainDataAPIView(generics.RetrieveUpdateAPIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
-
 class MainDataView(generics.CreateAPIView):
     serializer_class = MainDataSerializer
     permission_classes = (IsLegal,)
@@ -153,7 +152,7 @@ class FinancialDataView(generics.CreateAPIView):
             # log(f'all_data: {all_data.id}')
             if all_data.exists():
                 all_data = all_data.first()
-                all_data.status = Status.CHECKING # VAXTINCHALIK OZGARTRIB TUSHILGAN SINOV UCHUNCHECKING
+                all_data.status = Status.CHECKING  # VAXTINCHALIK OZGARTRIB TUSHILGAN SINOV UCHUNCHECKING
                 all_data.save()
                 # log(f'all_data2: {all_data.status}')
 
@@ -185,7 +184,7 @@ class FinancialDataAPIView(generics.RetrieveUpdateAPIView):
     permission_classes = (IsLegal,)
 
     def get_object(self):
-        queryset = FinancialData.objects.filter(user=self.request.user)
+        queryset = FinancialData.objects.filter(user=self.request.user, all_data__status=Status.DRAFT)
         try:
             instance = queryset.first()
         except FinancialData.DoesNotExist:
@@ -196,6 +195,7 @@ class FinancialDataAPIView(generics.RetrieveUpdateAPIView):
         instance = self.get_object()
         serializer = self.get_serializer(instance, data=request.data, partial=True)
         if serializer.is_valid():
+            print("Validated data:", serializer.validated_data)
             serializer.save()
             all_data = AllData.objects.filter(
                 Q(user=self.request.user) &
@@ -219,6 +219,7 @@ class FinancialDataAPIView(generics.RetrieveUpdateAPIView):
                 financial_data = FinancialData.objects.create(
                     user=self.request.user,
                     currency=Currency.objects.first()
+
                 )
                 AllData.objects.create(
                     main_data=main_data,
@@ -231,41 +232,6 @@ class FinancialDataAPIView(generics.RetrieveUpdateAPIView):
                 return Response({'error': 'Not all data validated'}, status=status.HTTP_400_BAD_REQUEST)
         else:
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-    # def create(self, request, *args, **kwargs):
-
-    # all_data = AllData.objects.filter(
-    #     Q(user=self.request.user) &
-    #     Q(status=Status.DRAFT) &
-    #     Q(main_data__is_validated=True) &
-    #     Q(informative_data__is_validated=True) &
-    #     Q(financial_data__is_validated=True)
-    # )
-    # if all_data.exists():
-    #     all_data = all_data.first()
-    #     all_data.status = Status.CHECKING # VAXTINCHALIK OZGARTRIB TUSHILGAN SINOV UCHUN
-    #     all_data.save()
-    #
-    #     main_data = MainData.objects.create(
-    #         user=self.request.user,
-    #     )
-    #     informative_data = InformativeData.objects.create(
-    #         user=self.request.user,
-    #     )
-    #
-    #     financial_data = FinancialData.objects.create(
-    #         user=self.request.user,
-    #         currency=Currency.objects.first()
-    #     )
-    #     AllData.objects.create(
-    #         main_data=main_data,
-    #         informative_data=informative_data,
-    #         financial_data=financial_data,
-    #         user=self.request.user
-    #     )
-    #     return Response(status=status.HTTP_201_CREATED)
-    # else:
-    #     return Response({'error': 'Not all data validated'}, status=status.HTTP_400_BAD_REQUEST)
 
 
 class MainDataDraftRetrieveView(generics.RetrieveAPIView):
@@ -902,8 +868,6 @@ class SmartNoteRetrieveView(generics.CreateAPIView):
         return Response(serializer_info.data, status=status.HTTP_200_OK, headers=headers)
 
 
-
-
 class SmartNoteDestroyView(generics.CreateAPIView):
     permission_classes = (permissions.AllowAny,)
     serializer_class = CustomIdSerializer
@@ -970,7 +934,8 @@ class SmartNoteUpdateView(generics.CreateAPIView):
 
         if instance:
             # Serializerni validatsiya qilish
-            serializer = self.get_serializer(instance, data=request.data, partial=True)  # partial=True - qisman yangilash
+            serializer = self.get_serializer(instance, data=request.data,
+                                             partial=True)  # partial=True - qisman yangilash
             serializer.is_valid(raise_exception=True)
 
             # Yangilash jarayonini amalga oshirish
@@ -978,12 +943,13 @@ class SmartNoteUpdateView(generics.CreateAPIView):
 
             updated_serializer = self.get_serializer(instance)
             headers = self.get_success_headers(updated_serializer.data)
-            return Response(serializer.data, status=status.HTTP_200_OK, headers=headers)
+            return Response(updated_serializer.data, status=status.HTTP_200_OK, headers=headers)
         else:
             return Response({"detail": "Smart Note not found."}, status=status.HTTP_404_NOT_FOUND)
 
     def perform_update(self, serializer):
         serializer.save()  # Serializer orqali yangilash
+
 
 class FaqRetriveView(generics.ListAPIView):
     queryset = Faq.objects.all()
