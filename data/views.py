@@ -25,7 +25,8 @@ from .serializers import (
     ProductPhotoSerializer, CategoryApiProSerializer, CategoryApiProSerializer, AllDataProSerializer,
     CadastraInfoSerializer, ProductPhotoSerializer,
     CategoryApiProSerializer, CategoryApiProSerializer, AllDataProSerializer, CadastraInfoSerializer,
-    ProductPhotoSerializer, AreaAPIDetailSerializer, AboutDocumentSerializer, IntroSerializer,
+    ProductPhotoSerializer, AreaAPIDetailSerializer, PhoneSerializer, UsageProcedureSerializer,
+    OfferSerializer, IntroSerializer,
 
 )
 from .permissions import (
@@ -983,12 +984,34 @@ class AreaMainAPIListView(generics.ListAPIView):
     permission_classes = (permissions.AllowAny,)
 
 
-class AboutDocumentView(APIView):
+class PhoneView(APIView):
     def get(self, request, *args, **kwargs):
         try:
             # Phone modelidan eng oxirgi ob'ekti olish
             latest_phone = AboutDocument.objects.latest('id')  # 'id' bo'yicha eng oxirgi ob'ekt
-            serializer = AboutDocumentSerializer(latest_phone)
+            serializer = PhoneSerializer(latest_phone)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        except AboutDocument.DoesNotExist:
+            return Response({"detail": "No objects available."}, status=status.HTTP_404_NOT_FOUND)
+
+
+class UsageProcedureView(APIView):
+    def get(self, request, *args, **kwargs):
+        try:
+            # Phone modelidan eng oxirgi ob'ekti olish
+            latest_phone = AboutDocument.objects.latest('id')  # 'id' bo'yicha eng oxirgi ob'ekt
+            serializer = UsageProcedureSerializer(latest_phone)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        except AboutDocument.DoesNotExist:
+            return Response({"detail": "No objects available."}, status=status.HTTP_404_NOT_FOUND)
+
+
+class OfferView(APIView):
+    def get(self, request, *args, **kwargs):
+        try:
+            # Phone modelidan eng oxirgi ob'ekti olish
+            latest_phone = AboutDocument.objects.latest('id')  # 'id' bo'yicha eng oxirgi ob'ekt
+            serializer = OfferSerializer(latest_phone)
             return Response(serializer.data, status=status.HTTP_200_OK)
         except AboutDocument.DoesNotExist:
             return Response({"detail": "No objects available."}, status=status.HTTP_404_NOT_FOUND)
@@ -1003,4 +1026,3 @@ class IntroView(APIView):
             return Response(serializer.data, status=status.HTTP_200_OK)
         except Intro.DoesNotExist:
             return Response({"detail": "No objects available."}, status=status.HTTP_404_NOT_FOUND)
-

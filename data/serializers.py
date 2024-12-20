@@ -689,7 +689,7 @@ class SmartNoteListRetrieveSerializer(serializers.ModelSerializer):
     class Meta:
         model = SmartNote
         fields = (
-        'id', 'enterprise_name', 'main_data', 'text', 'name', 'create_date_note', 'custom_id', 'images', 'videos')
+            'id', 'enterprise_name', 'main_data', 'text', 'name', 'create_date_note', 'custom_id', 'images', 'videos')
 
     def get_enterprise_name(self, object):
         main_data = object.main_data
@@ -825,14 +825,25 @@ class AreaAPIDetailSerializer(serializers.ModelSerializer):
         return list(obj.main_data.all().values('id', 'lat', 'long', 'location'))
 
 
-class AboutDocumentSerializer(serializers.ModelSerializer):
+class PhoneSerializer(serializers.ModelSerializer):
     class Meta:
         model = AboutDocument
-        fields = ['phone', 'usage_procedure', 'offer']
+        fields = ['phone']
+
+
+class UsageProcedureSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = AboutDocument
+        fields = ['usage_procedure']
+
+
+class OfferSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = AboutDocument
+        fields = ['offer']
 
 
 class IntroSerializer(serializers.ModelSerializer):
-
     class Meta:
         model = Intro
         fields = ['text_1', 'text_2', 'image']
