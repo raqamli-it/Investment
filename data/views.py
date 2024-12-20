@@ -7,6 +7,8 @@ from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
 from uuid import uuid4
 
+from rest_framework.views import APIView
+
 from .serializers import (
     MainDataSerializer, InformativeDataSerializer, FinancialDataSerializer, ObjectPhotoSerializer,
     MainDataRetrieveSerializer, InformativeDataRetrieveSerializer, FinancialDataRetrieveSerializer,
@@ -23,7 +25,7 @@ from .serializers import (
     ProductPhotoSerializer, CategoryApiProSerializer, CategoryApiProSerializer, AllDataProSerializer,
     CadastraInfoSerializer, ProductPhotoSerializer,
     CategoryApiProSerializer, CategoryApiProSerializer, AllDataProSerializer, CadastraInfoSerializer,
-    ProductPhotoSerializer, AreaAPIDetailSerializer,
+    ProductPhotoSerializer, AreaAPIDetailSerializer, AboutDocumentSerializer, IntroSerializer,
 
 )
 from .permissions import (
@@ -31,7 +33,7 @@ from .permissions import (
 )
 from .models import (
     Status, MainData, InformativeData, FinancialData, ObjectPhoto, AllData,
-    InvestorInfo, Category, Area, SmartNote, CurrencyPrice, Currency, Faq, CadastralPhoto,
+    InvestorInfo, Category, Area, SmartNote, CurrencyPrice, Currency, Faq, CadastralPhoto, AboutDocument, Intro,
 )
 from utils.logs import log
 
@@ -979,3 +981,26 @@ class AreaMainAPIListView(generics.ListAPIView):
     queryset = Area.objects.all()
     serializer_class = AreaAPIDetailSerializer
     permission_classes = (permissions.AllowAny,)
+
+
+class AboutDocumentView(APIView):
+    def get(self, request, *args, **kwargs):
+        try:
+            # Phone modelidan eng oxirgi ob'ekti olish
+            latest_phone = AboutDocument.objects.latest('id')  # 'id' bo'yicha eng oxirgi ob'ekt
+            serializer = AboutDocumentSerializer(latest_phone)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        except AboutDocument.DoesNotExist:
+            return Response({"detail": "No objects available."}, status=status.HTTP_404_NOT_FOUND)
+
+
+class IntroView(APIView):
+    def get(self, request, *args, **kwargs):
+        try:
+            # Phone modelidan eng oxirgi ob'ekti olish
+            latest_phone = Intro.objects.latest('id')  # 'id' bo'yicha eng oxirgi ob'ekt
+            serializer = IntroSerializer(latest_phone, context={'request': request})
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        except Intro.DoesNotExist:
+            return Response({"detail": "No objects available."}, status=status.HTTP_404_NOT_FOUND)
+

@@ -14,7 +14,7 @@ from .views import (
     SmartNoteListView, SmartNoteRetrieveView, SmartNoteDestroyView, SmartNoteUpdateView,
     CurrencyListView, CustomAlldataAllUsersListView, FaqRetriveView, AreaAPIListView, CategoryApiListView,
     MainDataAPIView, MainDataDraftListView, FinancialDataAPIView, ObjectPhotoViewList, AllDataCatListAPIView,
-    CategoryRetrieveView, AreaAPIDeatilView, AreaMainAPIListView
+    CategoryRetrieveView, AreaAPIDeatilView, AreaMainAPIListView, AboutDocumentView, IntroView
 )
 
 router = DefaultRouter()
@@ -79,6 +79,9 @@ urlpatterns = [
     path('smart-note-list', SmartNoteListView.as_view()),
     path('custom-all-data-all-users/<pk>', CustomAlldataAllUsersListView.as_view()),
     path('faqs', FaqRetriveView.as_view()),
+
+    path('about-document/', AboutDocumentView.as_view(), name='about-document'),
+    path('intro/', IntroView.as_view(), name='intro'),
 ]
 
 urlpatterns += router.urls

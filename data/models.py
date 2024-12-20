@@ -3,7 +3,6 @@ from django.utils.timezone import now
 from phonenumber_field.modelfields import PhoneNumberField
 from django.core.exceptions import ValidationError
 
-
 from accounts.models import User
 
 
@@ -192,6 +191,7 @@ class SmartNote(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='smart_notes', blank=True, null=True)
     create_date_note = models.DateTimeField(null=True, blank=True)
 
+
 class Image(models.Model):
     smart_note = models.ForeignKey(SmartNote, on_delete=models.CASCADE, related_name='images')
     image = models.ImageField(upload_to='note_images/', null=True, blank=True)  # ImageField ishlatish
@@ -218,6 +218,24 @@ class Faq(models.Model):
             return
 
         super().save(*args, **kwargs)
+
+
+class AboutDocument(models.Model):
+    phone = models.CharField(max_length=50)
+    usage_procedure = models.TextField(10000)
+    offer = models.TextField(20000)
+
+    def __str__(self):
+        return self.phone
+
+
+class Intro(models.Model):
+    text_1 = models.TextField(max_length=10000)
+    text_2 = models.TextField(max_length=10000)
+    image = models.ImageField(upload_to='intro/image')
+
+    def __str__(self):
+        return self.text_1[:40]
 
 # If table not created
 # python3 manage.py migrate --fake app_name zero

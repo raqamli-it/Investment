@@ -8,7 +8,8 @@ import uuid
 
 from .models import (
     MainData, InformativeData, FinancialData, ObjectPhoto, AllData,
-    InvestorInfo, Category, Area, SmartNote, Currency, Faq, CadastralPhoto, ProductPhoto, Status, Image, Video
+    InvestorInfo, Category, Area, SmartNote, Currency, Faq, CadastralPhoto, ProductPhoto, Status, Image, Video,
+    AboutDocument, Intro
 )
 
 
@@ -580,6 +581,7 @@ class LocationSerializer(serializers.Serializer):
     lat = serializers.DecimalField(max_digits=22, decimal_places=18)
     long = serializers.DecimalField(max_digits=22, decimal_places=18)
 
+
 class ImageSerializer(serializers.ModelSerializer):
     image = serializers.SerializerMethodField()
 
@@ -669,6 +671,7 @@ class SmartNoteCreateSerializer(serializers.ModelSerializer):
     #
     #     return instance
 
+
 class SmartNoteMainDataSerializer(serializers.ModelSerializer):
     enterprise_name = serializers.CharField(source='main_data.enterprise_name', read_only=True)
 
@@ -685,7 +688,8 @@ class SmartNoteListRetrieveSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = SmartNote
-        fields = ('id', 'enterprise_name', 'main_data', 'text', 'name', 'create_date_note', 'custom_id', 'images', 'videos')
+        fields = (
+        'id', 'enterprise_name', 'main_data', 'text', 'name', 'create_date_note', 'custom_id', 'images', 'videos')
 
     def get_enterprise_name(self, object):
         main_data = object.main_data
@@ -723,6 +727,7 @@ class SmartNoteUpdateSerializer(serializers.ModelSerializer):
     )
     images_list = ImageSerializer(many=True, read_only=True)
     videos_list = VideoSerializer(many=True, read_only=True)
+
     class Meta:
         model = SmartNote
         fields = ('text', 'name', 'create_date_note', 'custom_id', 'images', 'videos',
@@ -818,3 +823,22 @@ class AreaAPIDetailSerializer(serializers.ModelSerializer):
 
     def get_main_data(self, obj):
         return list(obj.main_data.all().values('id', 'lat', 'long', 'location'))
+
+
+class AboutDocumentSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = AboutDocument
+        fields = ['phone', 'usage_procedure', 'offer']
+
+
+class IntroSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = Intro
+        fields = ['text_1', 'text_2', 'image']
+
+    def get_image(self, obj):
+        request = self.context.get('request')
+        if obj.image and request:
+            return request.build_absolute_uri(obj.image.url)
+        return None
