@@ -13,64 +13,11 @@ from .models import (
 )
 
 
-class AllDataProSerializer(serializers.ModelSerializer):
-    cat_name = serializers.SerializerMethodField()
-    cat_id = serializers.SerializerMethodField()
-
-    class Meta:
-        model = AllData
-        fields = ('id', 'main_data', 'informative_data', 'financial_data', 'date_created', 'cat_name', 'cat_id')
-
-    def get_cat_name(self, obj):
-        main_data = obj.main_data
-        if main_data and main_data.category:
-            return main_data.category.category
-        return None
-
-    def get_cat_id(self, obj):
-        main_data = obj.main_data
-        if main_data and main_data.category:
-            return main_data.category.id
-        return None
-
-
-class CategoryApiSerializer(serializers.ModelSerializer):
-    main_data = serializers.SerializerMethodField()
-
-    class Meta:
-        model = Category
-        fields = ('id', 'category', 'main_data')
-        read_only_fields = ('id',)
-
-    def get_main_data(self, obj):
-        main_data_objects = obj.main_data.all()
-
-        serializer = MainDataSerializer(main_data_objects, many=True)
-
-        return serializer.data
-
-
-class AreaAPISerializer(serializers.ModelSerializer):
-    main_data = serializers.SerializerMethodField()
-
-    class Meta:
-        model = Area
-        fields = ('id', 'location', 'main_data')
-        read_only_fields = ('id',)
-
-    def get_main_data(self, obj):
-        main_data_objects = obj.main_data.all()
-
-        serializer = MainDataSerializer(main_data_objects, many=True)
-
-        return serializer.data
-
-
-class MainDataAPISerializer(serializers.ModelSerializer):
-    class Meta:
-        model = MainData
-        fields = ['enterprise_name', 'legal_form', 'location', 'lat', 'long', 'field_of_activity',
-                  'infrastructure', 'project_staff', 'category', 'user']
+# class MainDataAPISerializer(serializers.ModelSerializer):
+#     class Meta:
+#         model = MainData
+#         fields = ['enterprise_name', 'legal_form', 'location', 'lat', 'long', 'field_of_activity',
+#                   'infrastructure', 'project_staff', 'category', 'user']
 
 
 class MainDataAPISerializer(serializers.ModelSerializer):
@@ -82,18 +29,6 @@ class MainDataAPISerializer(serializers.ModelSerializer):
         model = MainData
         fields = ['enterprise_name', 'legal_form', 'location', 'lat', 'long', 'field_of_activity', 'infrastructure',
                   'project_staff', 'category', 'is_validated', 'user']
-
-
-class MainDataSerializer(serializers.Serializer):
-    enterprise_name = serializers.CharField(max_length=30)
-    legal_form = serializers.CharField(max_length=30)
-    location = serializers.PrimaryKeyRelatedField(allow_null=True, queryset=Area.objects.all())
-    lat = serializers.DecimalField(max_digits=22, decimal_places=18)
-    long = serializers.DecimalField(max_digits=22, decimal_places=18)
-    field_of_activity = serializers.CharField(max_length=30)
-    infrastructure = serializers.CharField(max_length=30)
-    project_staff = serializers.DecimalField(max_digits=4, decimal_places=0)
-    category = serializers.PrimaryKeyRelatedField(allow_null=True, queryset=Category.objects.all())
 
 
 class AlldateCategorySerializer(serializers.ModelSerializer):
@@ -132,22 +67,6 @@ class AlldateCategorySerializer(serializers.ModelSerializer):
             return None
         image_urls = [request.build_absolute_uri(photo.image.url) for photo in informative_model_photos]
         return image_urls
-
-
-class AreaAPISerializer(serializers.ModelSerializer):
-    main_data = serializers.SerializerMethodField()
-
-    class Meta:
-        model = Area
-        fields = ('id', 'location', 'main_data')
-        read_only_fields = ('id',)
-
-    def get_main_data(self, obj):
-        main_data_objects = obj.main_data.all()
-
-        serializer = MainDataSerializer(main_data_objects, many=True)
-
-        return serializer.data
 
 
 class Base64ImageField(serializers.ImageField):
@@ -202,17 +121,6 @@ class ObjectPhotoSerializer(serializers.ModelSerializer):
     class Meta:
         model = ObjectPhoto
         fields = ('image',)
-
-
-class InformativeDataSerializer(serializers.Serializer):
-    product_info = serializers.CharField(max_length=30)
-    project_capacity = serializers.CharField(max_length=30)
-    formation_date = serializers.DateTimeField()
-    total_area = serializers.DecimalField(max_digits=6, decimal_places=0)
-    building_area = serializers.DecimalField(max_digits=6, decimal_places=0)
-    tech_equipment = serializers.CharField(max_length=30)
-    product_photo = Base64ImageField(max_length=None, use_url=True)
-    cadastral_info = Base64ImageField(max_length=None, use_url=True)
 
 
 # Temur
@@ -328,41 +236,6 @@ class CurrencySerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 
-class MainDataRetrieveSerializer(serializers.ModelSerializer):
-    category = serializers.SerializerMethodField()
-    location = serializers.SerializerMethodField()
-
-    class Meta:
-        model = MainData
-        fields = '__all__'
-
-    def get_category(self, object):
-        return object.category.category if object.category else None
-
-    def get_location(self, object):
-        return object.location.location if object.location else None
-
-
-class InformativeDataRetrieveSerializer(serializers.ModelSerializer):
-    object_photos = ObjectPhotoSerializer(many=True)
-
-    class Meta:
-        model = InformativeData
-        fields = (
-            'id',
-            'product_info',
-            'project_capacity',
-            'formation_date',
-            'total_area',
-            'building_area',
-            'tech_equipment',
-            'product_photo',
-            'cadastral_info',
-            'user',
-            'object_photos'
-        )
-
-
 class FinancialDataRetrieveCustomSerializer(serializers.ModelSerializer):
     currency = serializers.SerializerMethodField()
 
@@ -372,12 +245,6 @@ class FinancialDataRetrieveCustomSerializer(serializers.ModelSerializer):
 
     def get_currency(self, object):
         return object.currency.code
-
-
-class FinancialDataRetrieveSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = FinancialData
-        fields = '__all__'
 
 
 # ASADBEK
@@ -391,6 +258,21 @@ class InformativeProDataSerializerGet(serializers.ModelSerializer):
         fields = ('product_info', 'project_capacity', 'total_area', 'formation_date',
                   'building_area', 'tech_equipment', 'object_foto',
                   'cadastral_info_list', 'product_photo_list')
+
+
+class MainDataRetrieveSerializer(serializers.ModelSerializer):
+    category = serializers.SerializerMethodField()
+    location = serializers.SerializerMethodField()
+
+    class Meta:
+        model = MainData
+        fields = '__all__'
+
+    def get_category(self, object):
+        return object.category.category if object.category else None
+
+    def get_location(self, object):
+        return object.location.location if object.location else None
 
 
 class AllDataSerializer(serializers.ModelSerializer):
@@ -424,41 +306,6 @@ class AllDataFilterSerializer(serializers.ModelSerializer):
 
     def get_long(self, object):
         return object.main_data.long
-
-
-class MainDataDraftSerializer(serializers.Serializer):
-    enterprise_name = serializers.CharField(max_length=256, allow_null=True, allow_blank=True, default='')
-    legal_form = serializers.CharField(max_length=30, allow_null=True, allow_blank=True, default='')
-    location = serializers.PrimaryKeyRelatedField(allow_null=True, queryset=Area.objects.all())
-    lat = serializers.DecimalField(max_digits=22, decimal_places=18, default=0)
-    long = serializers.DecimalField(max_digits=22, decimal_places=18, default=0)
-    field_of_activity = serializers.CharField(max_length=30, allow_null=True, allow_blank=True, default='')
-    infrastructure = serializers.CharField(max_length=30, allow_null=True, allow_blank=True, default='')
-    project_staff = serializers.DecimalField(max_digits=4, decimal_places=0, default=0)
-    category = serializers.PrimaryKeyRelatedField(allow_null=True, queryset=Category.objects.all())
-
-
-class InformativeDataDraftSerializer(serializers.Serializer):
-    product_info = serializers.CharField(max_length=30, allow_null=True, allow_blank=True, default='')
-    project_capacity = serializers.CharField(max_length=30, allow_null=True, allow_blank=True, default='')
-    formation_date = serializers.DateTimeField(allow_null=True, default=None)
-    total_area = serializers.DecimalField(max_digits=6, decimal_places=0, default=0)
-    building_area = serializers.DecimalField(max_digits=6, decimal_places=0, default=0)
-    tech_equipment = serializers.CharField(max_length=30, allow_null=True, allow_blank=True, default='')
-    # product_photo = serializers.ImageField(allow_null=True, default=None)
-    # cadastral_info = serializers.FileField(allow_null=True, default=None)
-    product_photo = Base64ImageField(max_length=None, use_url=True, allow_null=True, default=None)
-    cadastral_info = Base64ImageField(max_length=None, use_url=True, allow_null=True, default=None)
-
-
-class FinancialDataDraftSerializer(serializers.Serializer):
-    export_share = serializers.DecimalField(max_digits=18, decimal_places=4, default=0)
-    authorized_capital = serializers.DecimalField(max_digits=18, decimal_places=4, default=0)
-    estimated_value = serializers.DecimalField(max_digits=18, decimal_places=4, default=0)
-    investment_or_loan_amount = serializers.DecimalField(max_digits=18, decimal_places=4, default=0)
-    investment_direction = serializers.CharField(max_length=30, allow_null=True, allow_blank=True, default='')
-    major_shareholders = serializers.CharField(max_length=30, allow_null=True, allow_blank=True, default='')
-    currency = serializers.PrimaryKeyRelatedField(queryset=Currency.objects.all())
 
 
 # class InvestmentDraftSerializer(serializers.Serializer):
@@ -786,19 +633,6 @@ class FaqSerializer(serializers.ModelSerializer):
 
 
 # ASADbek
-
-
-class InformativeDataGetSerializer(serializers.ModelSerializer):
-    cadastral_info_list = CadastraInfoSerializer(many=True, read_only=True)
-    product_photo_list = ProductPhotoSerializer(many=True, read_only=True)
-    object_foto = ObjectPhotoSerializer(many=True, read_only=True)
-
-    class Meta:
-        model = InformativeData
-        fields = ('id', 'product_info', 'project_capacity', 'formation_date',
-                  'total_area', 'building_area', 'tech_equipment',
-                  'user', 'is_validated', 'object_foto', 'cadastral_info_list', 'product_photo_list')
-
 
 class CategoryApiProSerializer(serializers.ModelSerializer):
     alldata = serializers.SerializerMethodField()

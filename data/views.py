@@ -6,29 +6,7 @@ from django.utils.decorators import method_decorator
 from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
 from uuid import uuid4
-
 from rest_framework.views import APIView
-
-from .serializers import (
-    MainDataSerializer, InformativeDataSerializer, FinancialDataSerializer, ObjectPhotoSerializer,
-    MainDataRetrieveSerializer, InformativeDataRetrieveSerializer, FinancialDataRetrieveSerializer,
-    MainDataDraftSerializer, InformativeDataDraftSerializer, FinancialDataDraftSerializer,
-    AllDataSerializer, ObjectIdAndCoordinatesSerializer,  # InvestmentDraftSerializer,
-    InvestorInfoSerializer, InvestorInfoGetSerializer, InvestorInfoGetMinimumSerializer,
-    AllDataListSerializer, AllDataAllUsersListSerializer, CategorySerializer,
-    LocationSerializer, ApproveRejectInvestorSerializer, InvestorInfoOwnSerializer,
-    AllDataFilterSerializer, AreaSerializer, SmartNoteCreateSerializer, SmartNoteListRetrieveSerializer,
-    SmartNoteUpdateSerializer, CurrencySerializer, CustomIdSerializer, FaqSerializer, InformativeProDataSerializer,
-    AreaAPISerializer, CategoryApiSerializer, MainDataAPISerializer,
-    AreaAPISerializer, CategoryApiSerializer, InformativeDataGetSerializer, AlldateCategorySerializer,
-    CategoryApiProSerializer, CategoryApiProSerializer, AllDataProSerializer, CadastraInfoSerializer,
-    ProductPhotoSerializer, CategoryApiProSerializer, CategoryApiProSerializer, AllDataProSerializer,
-    CadastraInfoSerializer, ProductPhotoSerializer,
-    CategoryApiProSerializer, CategoryApiProSerializer, AllDataProSerializer, CadastraInfoSerializer,
-    ProductPhotoSerializer, AreaAPIDetailSerializer, PhoneSerializer, UsageProcedureSerializer,
-    OfferSerializer, IntroSerializer,
-
-)
 from .permissions import (
     IsLegal,
 )
@@ -36,6 +14,21 @@ from .models import (
     Status, MainData, InformativeData, FinancialData, ObjectPhoto, AllData,
     InvestorInfo, Category, Area, SmartNote, CurrencyPrice, Currency, Faq, CadastralPhoto, AboutDocument, Intro,
 )
+
+from .serializers import (
+    FinancialDataSerializer, ObjectPhotoSerializer,
+    AllDataSerializer, ObjectIdAndCoordinatesSerializer,  # InvestmentDraftSerializer,
+    InvestorInfoSerializer, InvestorInfoGetSerializer, InvestorInfoGetMinimumSerializer,
+    AllDataListSerializer, AllDataAllUsersListSerializer, CategorySerializer,
+    LocationSerializer, ApproveRejectInvestorSerializer, InvestorInfoOwnSerializer,
+    AllDataFilterSerializer, AreaSerializer, SmartNoteCreateSerializer, SmartNoteListRetrieveSerializer,
+    SmartNoteUpdateSerializer, CurrencySerializer, CustomIdSerializer, FaqSerializer, InformativeProDataSerializer,
+    MainDataAPISerializer, AlldateCategorySerializer,
+    CategoryApiProSerializer, AreaAPIDetailSerializer, PhoneSerializer, UsageProcedureSerializer,
+    OfferSerializer, IntroSerializer,
+
+)
+
 from utils.logs import log
 
 
@@ -59,21 +52,6 @@ class MainDataAPIView(generics.RetrieveUpdateAPIView):
             serializer.save()
             return Response(serializer.data)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-
-class MainDataView(generics.CreateAPIView):
-    serializer_class = MainDataSerializer
-    permission_classes = (IsLegal,)
-
-    def perform_create(self, serializer):
-        instance = MainData.objects.filter(
-            Q(user=self.request.user) &
-            Q(all_data__status=Status.DRAFT)
-        ).first()
-        instance.is_validated = True
-        for key, value in serializer.validated_data.items():
-            setattr(instance, key, value)
-        instance.save()
 
 
 class InformativeDataView(generics.RetrieveUpdateAPIView):
@@ -124,61 +102,6 @@ class ObjectPhotoView(generics.CreateAPIView):
             image=serializer.validated_data['image'],
             informative_data=instance
         )
-
-
-class FinancialDataView(generics.CreateAPIView):
-    serializer_class = FinancialDataSerializer
-    permission_classes = (IsLegal,)
-
-    def create(self, request, *args, **kwargs):
-        serializer = self.serializer_class(data=request.data)
-        # log('StartLog')
-        if serializer.is_valid():
-            instance = FinancialData.objects.filter(
-                Q(user=self.request.user) &
-                Q(all_data__status=Status.DRAFT)
-            ).first()
-            instance.is_validated = True
-            # setattr(instance, 'is_validated', True)
-            for key, value in serializer.validated_data.items():
-                setattr(instance, key, value)
-            # log(f'is_validated: {instance.is_validated}')
-            instance.save()
-
-            all_data = AllData.objects.filter(
-                Q(user=self.request.user) &
-                Q(status=Status.DRAFT) &
-                Q(main_data__is_validated=True) &
-                Q(informative_data__is_validated=True) &
-                Q(financial_data__is_validated=True)
-            )
-            # log(f'all_data: {all_data.id}')
-            if all_data.exists():
-                all_data = all_data.first()
-                all_data.status = Status.CHECKING  # VAXTINCHALIK OZGARTRIB TUSHILGAN SINOV UCHUNCHECKING
-                all_data.save()
-                # log(f'all_data2: {all_data.status}')
-
-                main_data = MainData.objects.create(
-                    user=self.request.user,
-                )
-                informative_data = InformativeData.objects.create(
-                    user=self.request.user,
-                )
-                financial_data = FinancialData.objects.create(
-                    user=self.request.user, currency=Currency.objects.first()
-                )
-                AllData.objects.create(
-                    main_data=main_data,
-                    informative_data=informative_data,
-                    financial_data=financial_data,
-                    user=self.request.user
-                )
-                return Response(serializer.validated_data)
-            else:
-                return Response({'error': 'Not all data validated'}, status=status.HTTP_400_BAD_REQUEST)
-        else:
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 class FinancialDataAPIView(generics.RetrieveUpdateAPIView):
@@ -237,28 +160,6 @@ class FinancialDataAPIView(generics.RetrieveUpdateAPIView):
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
-class MainDataDraftRetrieveView(generics.RetrieveAPIView):
-    serializer_class = MainDataRetrieveSerializer
-    permission_classes = (IsLegal,)
-
-    def get_object(self):
-        return MainData.objects.filter(Q(all_data__status=Status.DRAFT) & Q(user=self.request.user)).first()
-        return MainData.objects.all()
-
-
-class MainDataDraftListView(generics.RetrieveAPIView):
-    serializer_class = MainDataRetrieveSerializer
-    permission_classes = (IsLegal,)
-
-    def get_object(self):
-        queryset = MainData.objects.filter(user=self.request.user)
-        try:
-            instance = queryset.first()
-        except MainData.DoesNotExist:
-            raise Http404("No matching MainData found for this user")
-        return instance
-
-
 class CategoryListView(generics.ListAPIView):
     queryset = Category.objects.all()
     serializer_class = CategorySerializer
@@ -269,12 +170,6 @@ class AreaListView(generics.ListAPIView):
     queryset = Area.objects.all()
     serializer_class = AreaSerializer
     permission_classes = (permissions.AllowAny,)
-
-
-class AreaAPIListView(generics.ListAPIView):
-    queryset = Area.objects.all()
-    serializer_class = AreaAPISerializer
-    # permission_classes = (permissions.AllowAny,)
 
 
 class CategoryApiListView(generics.ListAPIView):
@@ -299,54 +194,16 @@ class AllDataCatListAPIView(generics.ListAPIView):
     serializer_class = AlldateCategorySerializer
     permission_classes = (permissions.AllowAny,)
 
-    # def get_queryset(self):
-    #     category = self.kwargs['category']
-    #     obj_main = AllData.objects.filter(main_data__category=category)
-
-
 class CurrencyListView(generics.ListAPIView):
     queryset = Currency.objects.all()
     serializer_class = CurrencySerializer
     permission_classes = (permissions.AllowAny,)
 
 
-class InformativeDataDraftRetrieveView(generics.RetrieveAPIView):
-    serializer_class = InformativeDataGetSerializer
-    permission_classes = (IsLegal,)
-
-    def get_object(self):
-        return InformativeData.objects.filter(Q(all_data__status=Status.DRAFT) & Q(user=self.request.user)).first()
-
-
-class FinancialDataDraftRetrieveView(generics.RetrieveAPIView):
-    serializer_class = FinancialDataRetrieveSerializer
-    permission_classes = (IsLegal,)
-
-    def get_object(self):
-        return FinancialData.objects.filter(Q(all_data__status=Status.DRAFT) & Q(user=self.request.user)).first()
-
-
 class AllDataViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.RetrieveModelMixin):
     queryset = AllData.objects.filter(status=Status.APPROVED)
     permission_classes = (permissions.AllowAny,)
     serializer_class = AllDataSerializer
-
-
-class AllDataUserViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.RetrieveModelMixin):
-    queryset = AllData.objects.all()
-    permission_classes = (IsLegal,)
-    # serializer_class = AllDataListSerializer
-    default_serializer_class = AllDataSerializer
-    serializer_classes = {
-        'list': AllDataListSerializer,
-        'retrieve': AllDataSerializer
-    }
-
-    def get_queryset(self):
-        return AllData.objects.filter(~Q(status=Status.DRAFT) & Q(user=self.request.user))
-
-    def get_serializer_class(self):
-        return self.serializer_classes.get(self.action, self.default_serializer_class)
 
 
 class AllDataUserViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.RetrieveModelMixin):
@@ -408,94 +265,6 @@ class CustomAlldataAllUsersListView(generics.ListAPIView):
         return Response(serializer.data)
 
 
-# class MainDataApprovedRetrieveView(generics.RetrieveAPIView):
-#     serializer_class = MainDataRetrieveSerializer
-#     permission_classes = (IsLegal,)
-
-#     def get_object(self):
-#         return MainData.objects.filter(user=self.request.user).first()
-
-
-# class InformativeDataApprovedRetrieveView(generics.RetrieveAPIView):
-#     serializer_class = InformativeDataRetrieveSerializer
-#     permission_classes = (IsLegal,)
-
-#     def get_object(self):
-#         return InformativeData.objects.filter(user=self.request.user).first()
-
-
-# class FinancialDataApprovedRetrieveView(generics.RetrieveAPIView):
-#     serializer_class = FinancialDataRetrieveSerializer
-#     permission_classes = (IsLegal,)
-
-#     def get_object(self):
-#         return FinancialData.objects.filter(user=self.request.user).first()
-
-
-# class SetReadyStatusView(views.APIView):
-#     permission_classes = (IsLegal,)
-
-#     def post(self, request):
-#         all_data = AllData.objects.filter(user=request.user).first()
-#         all_data.status = Status.READY
-#         all_data.save()
-#         return Response()
-
-
-class MainDataDraftView(generics.CreateAPIView):
-    serializer_class = MainDataDraftSerializer
-    permission_classes = (IsLegal,)
-
-    def perform_create(self, serializer):
-        hasnot_instance = False
-        instance = MainData.objects.filter(
-            Q(user=self.request.user) &
-            Q(all_data__status=Status.DRAFT)
-        ).first()
-        if instance is None:
-            hasnot_instance = True
-            instance = MainData(user=self.request.user)
-        for key, value in serializer.validated_data.items():
-            setattr(instance, key, value)
-        instance.save()
-        if hasnot_instance:
-            informdata = InformativeData(user=self.request.user)
-            informdata.save()
-            finandata = FinancialData(user=self.request.user, currency=Currency.objects.first())
-            finandata.save()
-            all_data = AllData(main_data=instance, informative_data=informdata,
-                               financial_data=finandata, user=self.request.user,
-                               )
-            all_data.save()
-
-
-class InformativeDataDraftView(generics.CreateAPIView):
-    serializer_class = InformativeDataDraftSerializer
-    permission_classes = (IsLegal,)
-
-    def perform_create(self, serializer):
-        instance = InformativeData.objects.filter(
-            Q(user=self.request.user) &
-            Q(all_data__status=Status.DRAFT)
-        ).first()
-        for key, value in serializer.validated_data.items():
-            setattr(instance, key, value)
-        instance.save()
-
-
-class FinancialDataDraftView(generics.CreateAPIView):
-    serializer_class = FinancialDataDraftSerializer
-    permission_classes = (IsLegal,)
-
-    def perform_create(self, serializer):
-        instance = FinancialData.objects.filter(
-            Q(user=self.request.user) &
-            Q(all_data__status=Status.DRAFT)
-        ).first()
-        for key, value in serializer.validated_data.items():
-            setattr(instance, key, value)
-        instance.save()
-
 
 # class InvestmentDraftView(generics.CreateAPIView):
 #     serializer_class = InvestmentDraftSerializer
@@ -525,28 +294,6 @@ class FinancialDataDraftView(generics.CreateAPIView):
 #                 setattr(instance, key, value)
 #             instance.save()
 
-
-class InvestorInfoView(generics.CreateAPIView):
-    serializer_class = InvestorInfoSerializer
-    permission_classes = (IsLegal,)
-
-    def perform_create(self, serializer):
-        all_data = AllData.objects.filter(
-            Q(id=serializer.validated_data['all_data'].id) &
-            Q(status=Status.APPROVED)
-        )
-
-        if all_data.exists():
-            instance = InvestorInfo.objects.create(
-                investor=self.request.user,
-                status=Status.APPROVED,
-                all_data=all_data.first()
-            )
-
-            for key, value in serializer.validated_data.items():
-                if not key == 'all_data':
-                    setattr(instance, key, value)
-            instance.save()
 
 
 class InvestorInfoViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.RetrieveModelMixin):
@@ -805,9 +552,6 @@ class SmartNoteCreateView(generics.CreateAPIView):
         headers = self.get_success_headers(serializer.data)
         return Response(data_for_return.data, status=status.HTTP_201_CREATED, headers=headers)
 
-
-from rest_framework.response import Response
-from rest_framework import status
 
 
 class SmartNoteListView(generics.ListAPIView):
