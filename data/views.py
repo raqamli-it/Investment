@@ -194,6 +194,7 @@ class AllDataCatListAPIView(generics.ListAPIView):
     serializer_class = AlldateCategorySerializer
     permission_classes = (permissions.AllowAny,)
 
+
 class CurrencyListView(generics.ListAPIView):
     queryset = Currency.objects.all()
     serializer_class = CurrencySerializer
@@ -265,7 +266,6 @@ class CustomAlldataAllUsersListView(generics.ListAPIView):
         return Response(serializer.data)
 
 
-
 # class InvestmentDraftView(generics.CreateAPIView):
 #     serializer_class = InvestmentDraftSerializer
 #     permission_classes = (IsLegal,)
@@ -293,7 +293,6 @@ class CustomAlldataAllUsersListView(generics.ListAPIView):
 #             for key, value in serializer.validated_data.items():
 #                 setattr(instance, key, value)
 #             instance.save()
-
 
 
 class InvestorInfoViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.RetrieveModelMixin):
@@ -553,7 +552,6 @@ class SmartNoteCreateView(generics.CreateAPIView):
         return Response(data_for_return.data, status=status.HTTP_201_CREATED, headers=headers)
 
 
-
 class SmartNoteListView(generics.ListAPIView):
     queryset = SmartNote.objects.all()
     serializer_class = SmartNoteListRetrieveSerializer
@@ -765,8 +763,57 @@ class IntroView(APIView):
     def get(self, request, *args, **kwargs):
         try:
             # Phone modelidan eng oxirgi ob'ekti olish
-            latest_phone = Intro.objects.latest('id')  # 'id' bo'yicha eng oxirgi ob'ekt
-            serializer = IntroSerializer(latest_phone, context={'request': request})
+            latest_phone = Intro.objects.all()  # 'id' bo'yicha eng oxirgi ob'ekt
+            serializer = IntroSerializer(latest_phone, many=True, context={'request': request})
             return Response(serializer.data, status=status.HTTP_200_OK)
         except Intro.DoesNotExist:
             return Response({"detail": "No objects available."}, status=status.HTTP_404_NOT_FOUND)
+
+
+# 2025-01-22 sanada qoshilgan kodlar
+class UserCheckingDataViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.RetrieveModelMixin):
+    queryset = AllData.objects.all()
+    default_serializer_class = AllDataSerializer
+    serializer_classes = {
+        'list': AllDataListSerializer,
+        'retrieve': AllDataSerializer
+    }
+    permission_classes = (permissions.IsAuthenticated,)
+
+    def get_queryset(self):
+        return AllData.objects.filter(user=self.request.user, status=Status.CHECKING)
+
+    def get_serializer_class(self):
+        return self.serializer_classes.get(self.action, self.default_serializer_class)
+
+
+class UserApprovedDataViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.RetrieveModelMixin):
+    queryset = AllData.objects.all()
+    default_serializer_class = AllDataSerializer
+    serializer_classes = {
+        'list': AllDataListSerializer,
+        'retrieve': AllDataSerializer
+    }
+    permission_classes = (permissions.IsAuthenticated,)
+
+    def get_queryset(self):
+        return AllData.objects.filter(user=self.request.user, status=Status.APPROVED)
+
+    def get_serializer_class(self):
+        return self.serializer_classes.get(self.action, self.default_serializer_class)
+
+
+class UserRejectedDataViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.RetrieveModelMixin):
+    queryset = AllData.objects.all()
+    default_serializer_class = AllDataSerializer
+    serializer_classes = {
+        'list': AllDataListSerializer,
+        'retrieve': AllDataSerializer
+    }
+    permission_classes = (permissions.IsAuthenticated,)
+
+    def get_queryset(self):
+        return AllData.objects.filter(user=self.request.user, status=Status.REJECTED)
+
+    def get_serializer_class(self):
+        return self.serializer_classes.get(self.action, self.default_serializer_class)

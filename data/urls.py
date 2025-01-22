@@ -12,6 +12,7 @@ from .views import (
     CurrencyListView, CustomAlldataAllUsersListView, FaqRetriveView, CategoryApiListView,
     MainDataAPIView, FinancialDataAPIView, ObjectPhotoViewList, AllDataCatListAPIView,
     CategoryRetrieveView, AreaAPIDeatilView, AreaMainAPIListView, IntroView, PhoneView, UsageProcedureView, OfferView,
+    UserCheckingDataViewSet, UserApprovedDataViewSet, UserRejectedDataViewSet,
 )
 
 router = DefaultRouter()
@@ -22,12 +23,15 @@ router.register('coordinates', ObjectIdAndCoordinatesViewSet)
 router.register('investor-info', InvestorInfoViewSet)
 router.register('all-data-investors', AllObjectInvestorsViewSet)
 
+# 2025-01-22 sanada qoshilgan kodlar
+router.register('mydata-checking', UserCheckingDataViewSet)
+router.register('mydata-approved', UserApprovedDataViewSet)
+router.register('mydata-rejected', UserRejectedDataViewSet)
+
 urlpatterns = [
     path('main-data-create-api', MainDataAPIView.as_view()),
     path('informative-data-create', InformativeDataView.as_view()),
     path('financial-data-create-api', FinancialDataAPIView.as_view()),
-    # tushunmadim
-    # tushunmadim
     path('object-photo', ObjectPhotoView.as_view()),
     path('object-photo-get', ObjectPhotoViewList.as_view()),
     # path('set-status-ready', SetReadyStatusView.as_view()),
