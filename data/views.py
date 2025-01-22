@@ -7,6 +7,8 @@ from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
 from uuid import uuid4
 from rest_framework.views import APIView
+from twisted.spread.jelly import class_atom
+
 from .permissions import (
     IsLegal,
 )
@@ -205,6 +207,18 @@ class AllDataViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Retr
     queryset = AllData.objects.filter(status=Status.APPROVED)
     permission_classes = (permissions.AllowAny,)
     serializer_class = AllDataSerializer
+
+    def retrieve(self, request, *args, **kwargs):
+        # Ma'lum bir objectni olish
+        instance = self.get_object()
+
+        # Bu yerda `+1` qo'shish
+        instance.view_count += 1  # `view_count` bu sizning modelda bor bo'lishi kerak
+        instance.save()  # O'zgartirishni saqlash
+
+        # Serializer orqali ma'lumotni qaytarish
+        serializer = self.get_serializer(instance)
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
 
 class AllDataUserViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.RetrieveModelMixin):
@@ -781,7 +795,7 @@ class UserCheckingDataViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mi
     permission_classes = (permissions.IsAuthenticated,)
 
     def get_queryset(self):
-        return AllData.objects.filter(user=self.request.user, status=Status.CHECKING)
+        return AllData.objects.filter(user=self.request.user, status=Status.CHECKING).order_by('-date_created')
 
     def get_serializer_class(self):
         return self.serializer_classes.get(self.action, self.default_serializer_class)
@@ -797,7 +811,7 @@ class UserApprovedDataViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mi
     permission_classes = (permissions.IsAuthenticated,)
 
     def get_queryset(self):
-        return AllData.objects.filter(user=self.request.user, status=Status.APPROVED)
+        return AllData.objects.filter(user=self.request.user, status=Status.APPROVED).order_by('-date_created')
 
     def get_serializer_class(self):
         return self.serializer_classes.get(self.action, self.default_serializer_class)
@@ -813,7 +827,23 @@ class UserRejectedDataViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mi
     permission_classes = (permissions.IsAuthenticated,)
 
     def get_queryset(self):
-        return AllData.objects.filter(user=self.request.user, status=Status.REJECTED)
+        return AllData.objects.filter(user=self.request.user, status=Status.REJECTED).order_by('-date_created')
 
     def get_serializer_class(self):
         return self.serializer_classes.get(self.action, self.default_serializer_class)
+
+
+class ViewCountAllDataView(generics.ListAPIView):
+    queryset = AllData.objects.all()
+    serializer_class = AlldateCategorySerializer
+
+    def get_queryset(self):
+        return AllData.objects.filter(status=Status.APPROVED).order_by('-view_count')[:6]
+
+
+class TopAllDataView(generics.ListAPIView):
+    queryset = AllData.objects.all()
+    serializer_class = AlldateCategorySerializer
+
+    def get_queryset(self):
+        return AllData.objects.filter(top=True, status=Status.APPROVED)[:6]

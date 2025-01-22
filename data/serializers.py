@@ -381,18 +381,34 @@ class ObjectIdAndCoordinatesSerializer(serializers.ModelSerializer):
 
 class AllDataListSerializer(serializers.ModelSerializer):
     enterprise_name = serializers.SerializerMethodField()
+    first_photo = serializers.SerializerMethodField()
+    category_name = serializers.SerializerMethodField()
 
     class Meta:
         model = AllData
         fields = (
             'id',
             'enterprise_name',
+            'category_name',
             'status',
             'date_created',
+            'first_photo'
         )
 
     def get_enterprise_name(self, object):
         return object.main_data.enterprise_name
+
+    def get_first_photo(self, obj):
+        # `obj.informative_data` orqali bog'liq `ObjectPhoto` larni olish
+        first_photo = obj.informative_data.object_foto.first()
+        if first_photo:  # Agar birinchi rasm mavjud bo'lsa, uning URL ni qaytarish
+            return self.context['request'].build_absolute_uri(first_photo.image.url)
+        return None  # Agar hech qanday rasm bo'lmasa, `None` qaytarish
+
+    def get_category_name(self, obj):
+        if obj.main_data:
+            return obj.main_data.category.category  # Category modelidagi 'category' maydonidan qiymatni oladi
+        return None  # Agar category yo'q bo'lsa, None qaytariladi
 
 
 class AllDataAllUsersListSerializer(serializers.ModelSerializer):

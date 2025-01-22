@@ -129,6 +129,8 @@ class AllData(models.Model):
     financial_data = models.OneToOneField(FinancialData, on_delete=models.CASCADE, related_name='all_data')
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='all_data')
     date_created = models.DateTimeField(auto_now_add=True)
+    view_count = models.IntegerField(default=0)
+    top = models.BooleanField(default=False)
     status = models.CharField(
         max_length=10,
         choices=Status.choices,

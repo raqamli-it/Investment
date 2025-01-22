@@ -12,7 +12,7 @@ from .views import (
     CurrencyListView, CustomAlldataAllUsersListView, FaqRetriveView, CategoryApiListView,
     MainDataAPIView, FinancialDataAPIView, ObjectPhotoViewList, AllDataCatListAPIView,
     CategoryRetrieveView, AreaAPIDeatilView, AreaMainAPIListView, IntroView, PhoneView, UsageProcedureView, OfferView,
-    UserCheckingDataViewSet, UserApprovedDataViewSet, UserRejectedDataViewSet,
+    UserCheckingDataViewSet, UserApprovedDataViewSet, UserRejectedDataViewSet, ViewCountAllDataView, TopAllDataView,
 )
 
 router = DefaultRouter()
@@ -69,6 +69,11 @@ urlpatterns = [
     path('usage-procedure/', UsageProcedureView.as_view(), name='usage-procedure'),
     path('offer/', OfferView.as_view(), name='offer'),
     path('intro/', IntroView.as_view(), name='intro'),
+
+    # 2025-01-22 sanada qoshilgan kodlar
+    path('top-all-data', TopAllDataView.as_view()),
+    path('view-count-all-data', ViewCountAllDataView.as_view()),
+
 ]
 
 urlpatterns += router.urls

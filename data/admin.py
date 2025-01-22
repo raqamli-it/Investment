@@ -10,7 +10,8 @@ from .models import (
 
 
 class AllDataAdmin(admin.ModelAdmin):
-    list_display = ('user', 'date_created', 'status')
+    list_display = ('user', 'date_created', 'status', 'top')
+    list_editable = ('top',)
     ordering = ('-date_created',)
 
 
