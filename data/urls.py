@@ -13,6 +13,7 @@ from .views import (
     MainDataAPIView, FinancialDataAPIView, ObjectPhotoViewList, AllDataCatListAPIView,
     CategoryRetrieveView, AreaAPIDeatilView, AreaMainAPIListView, IntroView, PhoneView, UsageProcedureView, OfferView,
     UserCheckingDataViewSet, UserApprovedDataViewSet, UserRejectedDataViewSet, ViewCountAllDataView, TopAllDataView,
+    DevicesView, DevicesCreateView,
 )
 
 router = DefaultRouter()
@@ -73,6 +74,8 @@ urlpatterns = [
     # 2025-01-22 sanada qoshilgan kodlar
     path('top-all-data', TopAllDataView.as_view()),
     path('view-count-all-data', ViewCountAllDataView.as_view()),
+    path('devices', DevicesView.as_view()),
+    path('devices-create', DevicesCreateView.as_view()),
 
 ]
 

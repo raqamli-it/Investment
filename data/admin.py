@@ -5,7 +5,7 @@ from django.contrib.admin import ModelAdmin
 from .models import (
     MainData, InformativeData, FinancialData, ObjectPhoto, Status, AllData,
     InvestorInfo, Category, Area, SmartNote, Currency, CurrencyPrice, Faq, CadastralPhoto,
-    ProductPhoto, Image, Video, AboutDocument, Intro
+    ProductPhoto, Image, Video, AboutDocument, Intro, Devices
 )
 
 
@@ -51,6 +51,7 @@ admin.site.register(MainData)
 admin.site.register(FinancialData)
 admin.site.register(ObjectPhoto)
 admin.site.register(InvestorInfo)
+admin.site.register(Devices)
 
 # admin.site.register(SmartNote)
 admin.site.register(CadastralPhoto)

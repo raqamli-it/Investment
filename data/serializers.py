@@ -9,7 +9,7 @@ import uuid
 from .models import (
     MainData, InformativeData, FinancialData, ObjectPhoto, AllData,
     InvestorInfo, Category, Area, SmartNote, Currency, Faq, CadastralPhoto, ProductPhoto, Status, Image, Video,
-    AboutDocument, Intro
+    AboutDocument, Intro, Devices
 )
 
 
@@ -703,3 +703,10 @@ class IntroSerializer(serializers.ModelSerializer):
         if obj.image and request:
             return request.build_absolute_uri(obj.image.url)
         return None
+
+
+class DevicesSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Devices
+        fields = ['device_brand', 'device_model', 'android_version', 'user']
+        extra_kwargs = {'user': {'read_only': True}}

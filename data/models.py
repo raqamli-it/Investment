@@ -239,6 +239,13 @@ class Intro(models.Model):
     def __str__(self):
         return self.text_1[:40]
 
+
+class Devices(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='devices')
+    device_brand = models.CharField(max_length=255)
+    device_model = models.CharField(max_length=255)
+    android_version = models.CharField(max_length=255)
+
 # If table not created
 # python3 manage.py migrate --fake app_name zero
 # Remove in the server all tables from models, views, serializers and cetera

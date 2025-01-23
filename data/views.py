@@ -15,6 +15,7 @@ from .permissions import (
 from .models import (
     Status, MainData, InformativeData, FinancialData, ObjectPhoto, AllData,
     InvestorInfo, Category, Area, SmartNote, CurrencyPrice, Currency, Faq, CadastralPhoto, AboutDocument, Intro,
+    Devices,
 )
 
 from .serializers import (
@@ -27,7 +28,7 @@ from .serializers import (
     SmartNoteUpdateSerializer, CurrencySerializer, CustomIdSerializer, FaqSerializer, InformativeProDataSerializer,
     MainDataAPISerializer, AlldateCategorySerializer,
     CategoryApiProSerializer, AreaAPIDetailSerializer, PhoneSerializer, UsageProcedureSerializer,
-    OfferSerializer, IntroSerializer,
+    OfferSerializer, IntroSerializer, DevicesSerializer,
 
 )
 
@@ -847,3 +848,24 @@ class TopAllDataView(generics.ListAPIView):
 
     def get_queryset(self):
         return AllData.objects.filter(top=True, status=Status.APPROVED)[:6]
+
+
+class DevicesView(generics.ListAPIView):
+    queryset = Devices.objects.all()
+    serializer_class = DevicesSerializer
+    permission_classes = (permissions.IsAuthenticated,)
+
+    def get_queryset(self):
+        return Devices.objects.filter(user=self.request.user)
+
+
+class DevicesCreateView(generics.CreateAPIView):
+    queryset = Devices.objects.all()
+    serializer_class = DevicesSerializer
+    permission_classes = (permissions.IsAuthenticated,)
+
+    def get_queryset(self):
+        return Devices.objects.filter(user=self.request.user)
+
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user)
