@@ -1,7 +1,8 @@
 from django.db import models
 from django.contrib.auth import get_user_model
-
+from django.utils import timezone
 User = get_user_model()
+
 
 class Chat(models.Model):
     user1 = models.ForeignKey(User, related_name='chats_user1', on_delete=models.CASCADE)
@@ -11,15 +12,29 @@ class Chat(models.Model):
     def __str__(self):
         return f"Chat between {self.user1} and {self.user2}"
 
+    def formatted_created_at(self):
+        """Asia/Tashkent vaqt mintaqasida formatlangan vaqtni qaytaradi."""
+        return timezone.localtime(self.created_at).strftime('%Y-%m-%d %H:%M:%S')
+
     @classmethod
-    def get_or_create_chat(cls, user1, user2):
-        """Get or create a chat between two users"""
+    def get_or_create_chat(cls, user1, user2_id):
+        """Get or create a chat between two users."""
+        try:
+            # user2 ni `User` modelidan olish
+            user2 = User.objects.get(id=user2_id)
+        except User.DoesNotExist:
+            raise ValueError("Receiver ID bilan foydalanuvchi topilmadi.")
+
+        # user1 va user2 ni tartiblash
+        if user1.id < user2.id:
+            user_a, user_b = user1, user2
+        else:
+            user_a, user_b = user2, user1
+
+        # Chatni olish yoki yaratish
         chat, created = cls.objects.get_or_create(
-            user1=user1,
-            user2=user2
-        ) if user1.id < user2.id else cls.objects.get_or_create(
-            user1=user2,
-            user2=user1
+            user1=user_a,
+            user2=user_b
         )
         return chat
 
@@ -28,11 +43,9 @@ class Message(models.Model):
     chat = models.ForeignKey(Chat, related_name='messages', on_delete=models.CASCADE)
     sender = models.ForeignKey(User, on_delete=models.CASCADE)
     content = models.TextField()
-    created_at = models.DateTimeField(auto_now_add=True)
+    created_at = models.DateTimeField()
     image = models.ImageField(upload_to='message_images/', blank=True, null=True)  # Rasmni saqlash
     is_read = models.BooleanField(default=False)  # O'qilgan status
 
     def __str__(self):
         return f"Message from {self.sender} in chat {self.chat.id}"
-
-

@@ -32,13 +32,14 @@ DEBUG = True
 # SITE_URL = 'http://127.0.0.1:8000'  # Replace with your actual base URL (e.g., production URL)
 SITE_URL = 'https://investment.uzfati.uz/'  # Replace with your actual base URL (e.g., production URL)
 
-
 ALLOWED_HOSTS = ["*"]
 
 # Application definition
 
 INSTALLED_APPS = [
     'daphne',
+    # 'graphene_django'
+    # 'graphql_ws.django'
     'modeltranslation',
     'django.contrib.admin',
     'django.contrib.auth',
@@ -106,8 +107,8 @@ CHANNEL_LAYERS = {
     'default': {
         'BACKEND': 'channels_redis.core.RedisChannelLayer',
         'CONFIG': {
-            "hosts": [("redis", 6379)],  # Redis konteyner nomi va porti
-            # "hosts": [("127.0.0.1", 6377)],  # Redis konteyner nomi va porti
+            # "hosts": [("redis", 6377)],  # Redis konteyner nomi va porti
+            "hosts": [("127.0.0.1", 6377)],  # Redis konteyner nomi va porti
         },
     },
 }
