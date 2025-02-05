@@ -7,6 +7,8 @@ from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
 from uuid import uuid4
 from rest_framework.views import APIView
+import requests
+
 from twisted.spread.jelly import class_atom
 
 from .permissions import (
@@ -869,3 +871,29 @@ class DevicesCreateView(generics.CreateAPIView):
 
     def perform_create(self, serializer):
         serializer.save(user=self.request.user)
+
+
+
+
+class ExchangeRatesView(APIView):
+    def get(self, request):
+        currencies = ["USD", "RUB", "EUR", "GBP", "JPY"]  # Kerakli valyutalar
+        base_url = "https://cbu.uz/uz/arkhiv-kursov-valyut/json/"
+
+        exchange_rates = {}  # Natijani saqlash uchun dictionary
+
+        try:
+            for currency in currencies:
+                response = requests.get(f"{base_url}{currency}/")
+                response.raise_for_status()  # Xatoliklarni tekshirish
+                data = response.json()
+
+                if data:
+                    exchange_rates[currency] = data[0]  # Valyuta ma'lumotlarini saqlash
+
+            return Response(exchange_rates)  # Hammasini qaytarish
+
+        except requests.exceptions.RequestException as e:
+            return Response({"error": f"API so‘rovida xatolik: {str(e)}"}, status=500)
+
+        return Response({"error": "Ma'lumot topilmadi"}, status=404)
