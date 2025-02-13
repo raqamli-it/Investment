@@ -870,9 +870,24 @@ class DevicesCreateView(generics.CreateAPIView):
         return Devices.objects.filter(user=self.request.user)
 
     def perform_create(self, serializer):
-        serializer.save(user=self.request.user)
+        device_brand = serializer.validated_data.get('device_brand')
+        device_model = serializer.validated_data.get('device_model')
+        android_version = serializer.validated_data.get('android_version')
 
+        existing_device = Devices.objects.filter(
+            user=self.request.user,
+            device_brand=device_brand,
+            device_model=device_model,
+            android_version=android_version
+        ).first()
 
+        if existing_device:
+            # Agar qurilma allaqachon mavjud bo‘lsa, faqat vaqtini yangilaymiz
+            existing_device.updated_at = now()
+            existing_device.save(update_fields=['updated_at'])
+        else:
+            # Agar qurilma mavjud bo‘lmasa, yangisini yaratamiz
+            serializer.save(user=self.request.user)
 
 
 class ExchangeRatesView(APIView):
