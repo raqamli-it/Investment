@@ -10,3 +10,4 @@ migrations/*
 db.sqlite3
 mediafiles
 staticfiles
+dump.rdb

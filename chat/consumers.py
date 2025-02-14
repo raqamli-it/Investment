@@ -39,7 +39,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 }))
 
                 # Foydalanuvchi chatga kirganda barcha o'qilmagan xabarlarni o'qilgan deb belgilash
-                await self.mark_messages_as_read()
+                await self.mark_messages_as_read_and_update()
 
             else:
                 # receiver_id bo'lmagan holat, ya'ni chatlar ro'yxatini yuborish
@@ -59,11 +59,22 @@ class ChatConsumer(AsyncWebsocketConsumer):
         else:
             await self.close()
 
+    async def mark_messages_as_read_and_update(self):
+        has_unread_messages = await self.mark_messages_as_read()
+        if has_unread_messages:
+            await self.update_user_chats()
+
     @database_sync_to_async
     def mark_messages_as_read(self):
         # Foydalanuvchi chatga kirganda, o'zi yozgan xabarlarni o'qilmagan deb belgilash
         unread_messages = Message.objects.filter(chat=self.chat, is_read=False).exclude(sender=self.user)
-        unread_messages.update(is_read=True)
+        has_unread_messages = unread_messages.exists()
+
+        # Agar o‘qilmagan xabar bo‘lsa, ularni o‘qilgan deb belgilaymiz
+        if has_unread_messages:
+            unread_messages.update(is_read=True)
+
+        return has_unread_messages
 
     @database_sync_to_async
     def get_chat_history(self):
@@ -71,7 +82,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
         messages = Message.objects.filter(chat=self.chat).order_by("created_at")
         return [
             {
-                "sender": message.sender.username,
+                "sender": message.sender.first_name,
                 "message": message.content,
                 "timestamp": message.created_at.isoformat(),
                 "is_read": message.is_read,  # Xabarni o'qilganligini ko'rsatish
@@ -88,17 +99,24 @@ class ChatConsumer(AsyncWebsocketConsumer):
         chat_list = []
         for chat in chats:
             last_message = chat.messages.last()
-            unread_messages = chat.messages.filter(is_read=False, sender_id=user_id).count()
+            unread_messages = chat.messages.filter(is_read=False).exclude(sender_id=user_id).count()
 
-            chat_list.append({
-                "other_user": {
-                    "id": chat.user1.id if chat.user2.id == user_id else chat.user2.id,
-                    "username": chat.user1.username if chat.user2.id == user_id else chat.user2.username,
+            # Jo'natuvchini to'g'ri aniqlash
+            sender_user = chat.user1 if chat.user2.id == user_id else chat.user2
+
+            chat_data = {
+                "other_user": {  # Bu yerda "other_user" o'rniga "sender" desak ham bo'ladi
+                    "id": sender_user.id,
+                    "username": sender_user.first_name,
                 },
                 "last_message": last_message.content if last_message else "",
                 "last_updated": timezone.localtime(last_message.created_at).isoformat() if last_message else "",
                 "unread_messages": unread_messages,
-            })
+            }
+
+            chat_list.append(chat_data)
+
+        chat_list.sort(key=lambda x: x["last_updated"], reverse=True)
 
         return chat_list
 
@@ -123,7 +141,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 {
                     "type": "chat_message",
                     "message": message_obj.content,
-                    "sender": self.user.username,
+                    "sender": self.user.first_name,
                     "timestamp": timestamp.isoformat(),
                 }
             )
@@ -142,25 +160,29 @@ class ChatConsumer(AsyncWebsocketConsumer):
             message_obj.save()
 
     async def update_user_chats(self):
-        # Foydalanuvchiga tegishli barcha chatlarni yangilash
-        user_chats = await self.get_user_chats(self.user.id)
+        # Qabul qiluvchining barcha chatlarini olish
+        receiver_chats = await self.get_user_chats(self.receiver_id)
 
-        # Foydalanuvchiga yangi chat ro'yxatini yuborish
-        await self.send(text_data=json.dumps({
-            "type": "chat_list",
-            "chats": user_chats
-        }))
+        # Faqat qabul qiluvchiga chat ro'yxatini yuborish
+        receiver_room_group_name = f"user_{self.receiver_id}"
+        await self.channel_layer.group_send(
+            receiver_room_group_name,
+            {
+                "type": "chat_list_update",
+                "chats": receiver_chats
+            }
+        )
 
-        # Receiver`ga xabar yuborish
-        if self.receiver_id:
-            receiver_room_group_name = f"user_{self.receiver_id}"
-            await self.channel_layer.group_send(
-                receiver_room_group_name,
-                {
-                    "type": "chat_list_update",  # Chat ro'yxatini yangilash
-                    "chats": user_chats
-                }
-            )
+        sender_chats = await self.get_user_chats(self.user.id)
+
+        sender_room_group_name = f"user_{self.user.id}"
+        await self.channel_layer.group_send(
+            sender_room_group_name,
+            {
+                "type": "chat_list_update",
+                "chats": sender_chats
+            }
+        )
 
     async def chat_message(self, event):
         # WebSocket orqali xabarni yuborish
