@@ -1,4 +1,5 @@
 from django.db import models
+from django.utils import timezone
 from django.utils.timezone import now
 from phonenumber_field.modelfields import PhoneNumberField
 from django.core.exceptions import ValidationError
@@ -245,6 +246,11 @@ class Devices(models.Model):
     device_brand = models.CharField(max_length=255)
     device_model = models.CharField(max_length=255)
     android_version = models.CharField(max_length=255)
+    created_at = models.DateTimeField(default=now, editable=False)
+    updated_at = models.DateTimeField(default=now)
+
+    def __str__(self):
+        return self.device_model
 
 # If table not created
 # python3 manage.py migrate --fake app_name zero

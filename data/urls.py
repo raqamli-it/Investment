@@ -17,17 +17,18 @@ from .views import (
 )
 
 router = DefaultRouter()
-router.register('all-data', AllDataViewSet)
-router.register('all-data-user', AllDataUserViewSet)
-router.register('all-data-all-users', AllDataAllUsersViewSet)
+router.register('all-data', AllDataViewSet, basename="all-data")
+router.register('all-data-user', AllDataUserViewSet, basename="all-data-user")
+router.register('all-data-all-users', AllDataAllUsersViewSet, basename="all-data-all-users")
+
 router.register('coordinates', ObjectIdAndCoordinatesViewSet)
 router.register('investor-info', InvestorInfoViewSet)
-router.register('all-data-investors', AllObjectInvestorsViewSet)
+router.register('all-data-investors', AllObjectInvestorsViewSet, basename="all-data-investors")
 
 # 2025-01-22 sanada qoshilgan kodlar
-router.register('mydata-checking', UserCheckingDataViewSet)
-router.register('mydata-approved', UserApprovedDataViewSet)
-router.register('mydata-rejected', UserRejectedDataViewSet)
+router.register('mydata-checking', UserCheckingDataViewSet, basename="mydata-checking")
+router.register('mydata-approved', UserApprovedDataViewSet, basename="mydata-approved")
+router.register('mydata-rejected', UserRejectedDataViewSet, basename="mydata-rejected")
 
 urlpatterns = [
     path('main-data-create-api', MainDataAPIView.as_view()),
@@ -83,4 +84,5 @@ urlpatterns = [
 ]
 
 urlpatterns += router.urls
-urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+if settings.DEBUG:
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

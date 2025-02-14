@@ -708,5 +708,5 @@ class IntroSerializer(serializers.ModelSerializer):
 class DevicesSerializer(serializers.ModelSerializer):
     class Meta:
         model = Devices
-        fields = ['device_brand', 'device_model', 'android_version', 'user']
+        fields = ['device_brand', 'device_model', 'android_version', 'user', 'created_at', 'updated_at']
         extra_kwargs = {'user': {'read_only': True}}
