@@ -913,3 +913,18 @@ class ExchangeRatesView(APIView):
             return Response({"error": f"API so‘rovida xatolik: {str(e)}"}, status=500)
 
         return Response({"error": "Ma'lumot topilmadi"}, status=404)
+
+
+
+# 14-02-2025 Search
+
+class SearchData(generics.ListAPIView):
+    queryset = AllData.objects.all()
+    serializer_class =  AllDataListSerializer
+    # permission_classes = (permissions.IsAuthenticated,)
+
+    def get_queryset(self):
+        search_query = self.request.query_params.get("search", '').strip()
+        if search_query:
+            return AllData.objects.filter(main_data__enterprise_name__icontains=search_query, status=Status.APPROVED).order_by('-date_created')
+        return AllData.objects.none()

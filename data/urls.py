@@ -13,7 +13,7 @@ from .views import (
     MainDataAPIView, FinancialDataAPIView, ObjectPhotoViewList, AllDataCatListAPIView,
     CategoryRetrieveView, AreaAPIDeatilView, AreaMainAPIListView, IntroView, PhoneView, UsageProcedureView, OfferView,
     UserCheckingDataViewSet, UserApprovedDataViewSet, UserRejectedDataViewSet, ViewCountAllDataView, TopAllDataView,
-    DevicesView, DevicesCreateView, ExchangeRatesView,
+    DevicesView, DevicesCreateView, ExchangeRatesView, SearchData,
 )
 
 router = DefaultRouter()
@@ -31,6 +31,9 @@ router.register('mydata-approved', UserApprovedDataViewSet, basename="mydata-app
 router.register('mydata-rejected', UserRejectedDataViewSet, basename="mydata-rejected")
 
 urlpatterns = [
+    # search
+    path('search/', SearchData.as_view()),
+
     path('main-data-create-api', MainDataAPIView.as_view()),
     path('informative-data-create', InformativeDataView.as_view()),
     path('financial-data-create-api', FinancialDataAPIView.as_view()),
