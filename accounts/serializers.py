@@ -37,13 +37,13 @@ class UserLegalStatusSerializer(serializers.ModelSerializer):
 class UserProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = ('email', 'tin', 'first_name', 'last_name', 'photo')
+        fields = ('phone_num', 'email', 'tin', 'first_name', 'last_name', 'photo', 'about')
 
 
 class UserInfoUpdateSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = ('first_name', 'last_name', 'photo')
+        fields = ('phone_num', 'first_name', 'last_name', 'photo', 'about')
 
 
 class UserPasswordUpdateSerializer(serializers.Serializer):

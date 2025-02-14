@@ -1,6 +1,7 @@
 from django.db import models
 from django.contrib.auth.models import AbstractUser
 from django.contrib.auth.base_user import BaseUserManager
+from phonenumber_field.modelfields import PhoneNumberField
 
 
 class UserManager(BaseUserManager):
@@ -33,11 +34,12 @@ class UserManager(BaseUserManager):
 
 
 class User(AbstractUser):
-    # phone_num = PhoneNumberField('Phone number', unique=True, blank=True, null=True)
+    phone_num = PhoneNumberField('Phone number', unique=True, blank=True, null=True)
     username = None
     email = models.EmailField(('email address'), unique=True)
     photo = models.ImageField(upload_to='files/users_photo/')
     tin = models.CharField(max_length=14, unique=True)
+    about = models.TextField(max_length=355, blank=True, null=True)
     is_physic = models.BooleanField(default=True)
     is_online = models.BooleanField(default=False)  # Online holat
 
