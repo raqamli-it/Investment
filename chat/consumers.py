@@ -82,7 +82,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
         messages = Message.objects.filter(chat=self.chat).order_by("created_at")
         return [
             {
-                "sender": message.sender.first_name,
+                "sender": message.sender.id,
                 "message": message.content,
                 "timestamp": message.created_at.isoformat(),
                 "is_read": message.is_read,  # Xabarni o'qilganligini ko'rsatish
@@ -132,7 +132,8 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 chat=self.chat,
                 sender=self.user,
                 content=message,
-                created_at=timestamp
+                created_at=timestamp,
+                # is_read = False
             )
 
             # Barcha ishtirokchilarga xabarni yuborish
@@ -141,8 +142,10 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 {
                     "type": "chat_message",
                     "message": message_obj.content,
-                    "sender": self.user.first_name,
+                    "sender": self.user.id,
                     "timestamp": timestamp.isoformat(),
+                    # "is_read": message_obj.is_read,
+
                 }
             )
 
@@ -191,6 +194,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
             "message": event["message"],
             "sender": event["sender"],
             "timestamp": event["timestamp"],
+            # "is_read": event.get("is_read", False)
         }))
 
     async def chat_list_update(self, event):
