@@ -9,7 +9,7 @@ import uuid
 from .models import (
     MainData, InformativeData, FinancialData, ObjectPhoto, AllData,
     InvestorInfo, Category, Area, SmartNote, Currency, Faq, CadastralPhoto, ProductPhoto, Status, Image, Video,
-    AboutDocument, Intro, Devices
+    AboutDocument, Intro, Devices, Card
 )
 
 
@@ -291,6 +291,49 @@ class AllDataSerializer(serializers.ModelSerializer):
             'status',
             'date_created',
         )
+
+
+class AllDataUpdateSerializer(serializers.ModelSerializer):
+    main_data = MainDataRetrieveSerializer()
+    informative_data = InformativeProDataSerializerGet()
+    financial_data = FinancialDataRetrieveCustomSerializer()
+    status = serializers.CharField(read_only=True)  # status o'zgartirilmaydi
+
+    class Meta:
+        model = AllData
+        fields = (
+            'id',
+            'user',
+            'main_data',
+            'informative_data',
+            'financial_data',
+            'status',
+            'date_created',
+        )
+
+    def update(self, instance, validated_data):
+        # Ichki modellarning ma'lumotlarini yangilash
+        main_data_data = validated_data.pop('main_data', None)
+        informative_data_data = validated_data.pop('informative_data', None)
+        financial_data_data = validated_data.pop('financial_data', None)
+
+        if main_data_data:
+            for attr, value in main_data_data.items():
+                setattr(instance.main_data, attr, value)
+            instance.main_data.save()
+
+        if informative_data_data:
+            for attr, value in informative_data_data.items():
+                setattr(instance.informative_data, attr, value)
+            instance.informative_data.save()
+
+        if financial_data_data:
+            for attr, value in financial_data_data.items():
+                setattr(instance.financial_data, attr, value)
+            instance.financial_data.save()
+
+        instance.save()
+        return instance
 
 
 class AllDataFilterSerializer(serializers.ModelSerializer):
@@ -710,3 +753,14 @@ class DevicesSerializer(serializers.ModelSerializer):
         model = Devices
         fields = ['device_brand', 'device_model', 'android_version', 'user', 'created_at', 'updated_at']
         extra_kwargs = {'user': {'read_only': True}}
+
+
+# kod qoshildi 26-02-2025
+
+
+class CardSerializer(serializers.ModelSerializer):
+    card = AllDataListSerializer(source="all_data")
+    class Meta:
+        model = Card
+        fields = ('id', 'card', 'user', 'created_at')
+

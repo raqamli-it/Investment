@@ -18,7 +18,7 @@ from .permissions import (
 from .models import (
     Status, MainData, InformativeData, FinancialData, ObjectPhoto, AllData,
     InvestorInfo, Category, Area, SmartNote, CurrencyPrice, Currency, Faq, CadastralPhoto, AboutDocument, Intro,
-    Devices,
+    Devices, Card,
 )
 
 from .serializers import (
@@ -31,7 +31,7 @@ from .serializers import (
     SmartNoteUpdateSerializer, CurrencySerializer, CustomIdSerializer, FaqSerializer, InformativeProDataSerializer,
     MainDataAPISerializer, AlldateCategorySerializer,
     CategoryApiProSerializer, AreaAPIDetailSerializer, PhoneSerializer, UsageProcedureSerializer,
-    OfferSerializer, IntroSerializer, DevicesSerializer,
+    OfferSerializer, IntroSerializer, DevicesSerializer, AllDataUpdateSerializer, CardSerializer,
 
 )
 
@@ -789,12 +789,14 @@ class IntroView(APIView):
 
 
 # 2025-01-22 sanada qoshilgan kodlar
-class UserCheckingDataViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.RetrieveModelMixin):
+class UserCheckingDataViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.RetrieveModelMixin,
+                              mixins.UpdateModelMixin):  # UpdateMixin qo‘shildi
     queryset = AllData.objects.all()
     default_serializer_class = AllDataSerializer
     serializer_classes = {
         'list': AllDataListSerializer,
-        'retrieve': AllDataSerializer
+        'retrieve': AllDataSerializer,
+        'update': AllDataUpdateSerializer  # Yangi serializer
     }
     permission_classes = (permissions.IsAuthenticated,)
 
@@ -803,6 +805,18 @@ class UserCheckingDataViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mi
 
     def get_serializer_class(self):
         return self.serializer_classes.get(self.action, self.default_serializer_class)
+
+    def update(self, request, *args, **kwargs):
+        instance = self.get_object()
+
+        # Faqat foydalanuvchining o‘ziga tegishli `CHECKING` statusdagi obyektlarni yangilashga ruxsat beriladi
+        if instance.user != request.user:
+            return Response({"detail": "Bu ma'lumotni yangilashga ruxsat yo‘q"}, status=status.HTTP_403_FORBIDDEN)
+
+        serializer = self.get_serializer(instance, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(serializer.data)
 
 
 class UserApprovedDataViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.RetrieveModelMixin):
@@ -915,16 +929,52 @@ class ExchangeRatesView(APIView):
         return Response({"error": "Ma'lumot topilmadi"}, status=404)
 
 
-
 # 14-02-2025 Search
 
 class SearchData(generics.ListAPIView):
     queryset = AllData.objects.all()
-    serializer_class =  AllDataListSerializer
+    serializer_class = AllDataListSerializer
+
     # permission_classes = (permissions.IsAuthenticated,)
 
     def get_queryset(self):
         search_query = self.request.query_params.get("search", '').strip()
         if search_query:
-            return AllData.objects.filter(main_data__enterprise_name__icontains=search_query, status=Status.APPROVED).order_by('-date_created')
+            return AllData.objects.filter(main_data__enterprise_name__icontains=search_query,
+                                          status=Status.APPROVED).order_by('-date_created')
         return AllData.objects.none()
+
+
+# 26-02-2025 Search
+
+class CardCreateAPIView(generics.CreateAPIView):
+    permission_classes = (permissions.IsAuthenticated,)  # Faqat login qilingan foydalanuvchilar qo'sha oladi
+
+    def post(self, request, all_data_id):
+        user = request.user
+
+        # `all_data_id` bo‘yicha `Card` obyektini izlash
+        all_data = AllData.objects.filter(id=all_data_id).first()
+        if not all_data:
+            return Response({"detail": "AllData topilmadi"}, status=status.HTTP_404_NOT_FOUND)
+
+        card = Card.objects.filter(all_data=all_data, user=user).first()
+
+        if card:
+            # Agar `Card` allaqachon mavjud bo‘lsa, uni o‘chirib tashlaymiz
+            card.delete()
+            return Response({"detail": "Card o‘chirildi"}, status=status.HTTP_204_NO_CONTENT)
+        else:
+            # Aks holda, yangi `Card` obyektini yaratamiz
+            Card.objects.create(all_data=all_data, user=user)
+            return Response({"detail": "Card qo‘shildi"}, status=status.HTTP_201_CREATED)
+
+
+
+class CardListAPIView(generics.ListAPIView):
+    serializer_class = CardSerializer
+    permission_classes = (permissions.IsAuthenticated,)
+
+    def get_queryset(self):
+        """Foydalanuvchining qo‘shgan `Card` obyektlarini chiqarish"""
+        return Card.objects.filter(user=self.request.user).order_by('-created_at')

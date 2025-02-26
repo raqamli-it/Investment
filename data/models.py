@@ -252,6 +252,13 @@ class Devices(models.Model):
     def __str__(self):
         return self.device_model
 
+
+class Card(models.Model):
+    all_data = models.ForeignKey(AllData, on_delete=models.CASCADE, related_name='card')
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='card_user')
+    created_at = models.DateTimeField(default=now, editable=False)
+
+
 # If table not created
 # python3 manage.py migrate --fake app_name zero
 # Remove in the server all tables from models, views, serializers and cetera
