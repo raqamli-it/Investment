@@ -947,27 +947,26 @@ class SearchData(generics.ListAPIView):
 
 # 26-02-2025 Search
 
+from django.shortcuts import get_object_or_404
+from rest_framework import generics, permissions, status
+from rest_framework.response import Response
+from .models import Card, AllData
+
 class CardCreateAPIView(generics.CreateAPIView):
-    permission_classes = (permissions.IsAuthenticated,)  # Faqat login qilingan foydalanuvchilar qo'sha oladi
+    permission_classes = (permissions.IsAuthenticated,)
 
     def post(self, request, all_data_id):
         user = request.user
+        all_data = get_object_or_404(AllData, id=all_data_id)
 
-        # `all_data_id` bo‘yicha `Card` obyektini izlash
-        all_data = AllData.objects.filter(id=all_data_id).first()
-        if not all_data:
-            return Response({"detail": "AllData topilmadi"}, status=status.HTTP_404_NOT_FOUND)
+        # O'sha user va all_data uchun Card mavjud bo'lsa, o‘chiramiz
+        deleted, _ = Card.objects.filter(all_data=all_data, user=user).delete()
+        if deleted:
+            return Response({"detail": "Card o‘chirildi"}, status=status.HTTP_200_OK)
 
-        card = Card.objects.filter(all_data=all_data, user=user).first()
-
-        if card:
-            # Agar `Card` allaqachon mavjud bo‘lsa, uni o‘chirib tashlaymiz
-            card.delete()
-            return Response({"detail": "Card o‘chirildi"}, status=status.HTTP_204_NO_CONTENT)
-        else:
-            # Aks holda, yangi `Card` obyektini yaratamiz
-            Card.objects.create(all_data=all_data, user=user)
-            return Response({"detail": "Card qo‘shildi"}, status=status.HTTP_201_CREATED)
+        # Card yaratamiz (agar mavjud bo‘lmasa)
+        Card.objects.create(all_data=all_data, user=user)
+        return Response({"detail": "Card qo‘shildi"}, status=status.HTTP_201_CREATED)
 
 
 
