@@ -203,3 +203,178 @@ class ChatConsumer(AsyncWebsocketConsumer):
             "type": "chat_list",
             "chats": event["chats"]
         }))
+
+
+import json
+from urllib.parse import parse_qs
+from django.utils import timezone
+from channels.generic.websocket import AsyncWebsocketConsumer
+from channels.db import database_sync_to_async
+from chat.models import GroupChat, GroupMessage, GroupMessageRead
+
+
+class GroupChatConsumer(AsyncWebsocketConsumer):
+    async def connect(self):
+        """WebSocketga ulanish"""
+        self.user = self.scope["user"]
+
+        if not self.user.is_authenticated:
+            await self.close()
+            return
+
+        query_params = parse_qs(self.scope["query_string"].decode())
+        self.group_id = query_params.get("group_id", [None])[0]
+
+        self.groups = await self.get_user_groups(self.user)
+        if self.group_id:
+            await self.add_user_to_group()
+        await self.accept()
+
+        if not self.group_id:
+            await self.channel_layer.group_add("global_group_updates", self.channel_name)
+            await self.send(json.dumps({"type": "group_list", "groups": self.groups}))
+
+        if self.group_id:
+            self.room_group_name = f"group_{self.group_id}"
+            await self.channel_layer.group_add(self.room_group_name, self.channel_name)
+            messages, members = await self.get_chat_history()
+            await self.send(json.dumps({"type": "chat_history", "messages": messages}))
+
+            for member in members:
+                updated_groups = await self.get_user_groups(member)
+                await self.channel_layer.group_send(
+                    "global_group_updates",
+                    {
+                        "type": "group_list_update",
+                        "groups": updated_groups,
+                        "user_id": member.id
+                    }
+                )
+
+    @database_sync_to_async
+    def add_user_to_group(self):
+        """Foydalanuvchini guruh a'zolariga qo‘shish"""
+        group = GroupChat.objects.get(id=self.group_id)
+        if not group.members.filter(id=self.user.id).exists():
+            group.members.add(self.user)
+
+    async def receive(self, text_data):
+        """Yangi xabar qabul qilish"""
+        data = json.loads(text_data)
+        message = data.get("message")
+        read = data.get("read")
+
+        if read and self.group_id:
+            await self.mark_messages_as_read()
+            return
+
+        if self.user.is_authenticated and self.group_id and message:
+            timestamp = timezone.localtime(timezone.now())
+
+            message_obj = await database_sync_to_async(GroupMessage.objects.create)(
+                group_id=self.group_id,
+                sender=self.user,
+                content=message,
+                created_at=timestamp
+            )
+
+            members = await database_sync_to_async(
+                lambda: list(GroupChat.objects.get(id=self.group_id).members.all()))()
+
+            unread_users = []
+            for member in members:
+                if member != self.user:
+                    await database_sync_to_async(GroupMessageRead.objects.create)(
+                        message=message_obj, user=member, is_read=False
+                    )
+                    unread_users.append(member.id)
+
+            for member in members:
+                updated_groups = await self.get_user_groups(member)
+                await self.channel_layer.group_send(
+                    "global_group_updates",
+                    {
+                        "type": "group_list_update",
+                        "groups": updated_groups,
+                        "user_id": member.id
+                    }
+                )
+
+            await self.channel_layer.group_send(
+                self.room_group_name,
+                {
+                    "type": "chat_message",
+                    "message_id": message_obj.id,
+                    "message": message_obj.content,
+                    "sender": self.user.id,
+                    "sender_name": self.user.username,
+                    "timestamp": timestamp.isoformat(),
+                }
+            )
+
+    async def chat_message(self, event):
+        """Yangi xabarni yuborish"""
+        await self.send(json.dumps({
+            "type": "chat_message",
+            "message_id": event["message_id"],
+            "message": event["message"],
+            "sender": event["sender"],
+            "sender_name": event["sender_name"],
+            "timestamp": event["timestamp"],
+        }))
+
+    async def group_list_update(self, event):
+        """Barcha foydalanuvchilarga guruhlar ro‘yxatini yangilash"""
+        if event.get("user_id") == self.user.id:
+            if self.group_id:
+                return
+            await self.send(json.dumps({
+                "type": "group_list",
+                "groups": event["groups"]
+            }))
+
+    @database_sync_to_async
+    def get_user_groups(self, user):
+        """Foydalanuvchi obuna bo‘lgan barcha guruhlarni olish"""
+        groups = GroupChat.objects.filter(members=user).prefetch_related("messages")
+        return [
+            {
+                "id": group.id,
+                "name": group.name,
+                "last_message": (group.messages.last().content if group.messages.exists() else ""),
+                "last_updated": group.messages.last().created_at.isoformat() if group.messages.exists() else "",
+                "unread_count": GroupMessageRead.objects.filter(
+                    message__group=group, user=user, is_read=False
+                ).exclude(message__sender=user).count()
+            }
+            for group in groups
+        ]
+
+    @database_sync_to_async
+    def get_chat_history(self):
+        """Guruh tarixini olish va oxirgi xabarni o‘qilgan deb belgilash"""
+        messages = GroupMessage.objects.filter(group_id=self.group_id).order_by("created_at").select_related("sender")
+        members = list(GroupChat.objects.get(id=self.group_id).members.all())
+        return [
+            {
+                "id": message.id,
+                "sender": message.sender.id,
+                "sender_name": message.sender.username,
+                "message": message.content,
+                "timestamp": message.created_at.isoformat(),
+            }
+            for message in messages
+        ], members
+
+    @database_sync_to_async
+    def mark_messages_as_read(self):
+        """Barcha o‘qilmagan xabarlarni o‘qilgan deb belgilash"""
+        GroupMessageRead.objects.filter(
+            message__group_id=self.group_id, user=self.user, is_read=False
+        ).update(is_read=True)
+
+    async def disconnect(self, close_code):
+        """Foydalanuvchi chiqqanda WebSocket kanalidan chiqarish"""
+        if hasattr(self, "room_group_name"):
+            await self.channel_layer.group_discard(self.room_group_name, self.channel_name)
+        await self.channel_layer.group_discard("global_group_updates", self.channel_name)

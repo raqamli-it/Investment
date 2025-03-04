@@ -1,6 +1,7 @@
 from django.db import models
 from django.contrib.auth import get_user_model
 from django.utils import timezone
+
 User = get_user_model()
 
 
@@ -49,3 +50,36 @@ class Message(models.Model):
 
     def __str__(self):
         return f"Message from {self.sender} in chat {self.chat.id}"
+
+
+class GroupChat(models.Model):
+    name = models.CharField(max_length=255)
+    members = models.ManyToManyField(User, related_name="group_chats")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return self.name
+
+
+class GroupMessage(models.Model):
+    group = models.ForeignKey(GroupChat, on_delete=models.CASCADE, related_name="messages")
+    sender = models.ForeignKey(User, on_delete=models.CASCADE)
+    content = models.TextField()
+    is_read = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.sender.username}: {self.content[:20]}"
+
+
+class GroupMessageRead(models.Model):
+    message = models.ForeignKey(GroupMessage, on_delete=models.CASCADE, related_name="read_status")
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    is_read = models.BooleanField(default=False)
+
+    class Meta:
+        unique_together = (
+        'message', 'user')  # Bir foydalanuvchi har bir xabar uchun faqat bitta yozuvga ega bo‘lishi kerak
+
+    def __str__(self):
+        return f"{self.user.username} - {self.message.id}: {'Read' if self.is_read else 'Unread'}"
