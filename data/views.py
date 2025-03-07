@@ -9,7 +9,9 @@ from drf_yasg import openapi
 from uuid import uuid4
 from rest_framework.views import APIView
 import requests
-
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import IsAuthenticated
+from django.shortcuts import get_object_or_404
 from twisted.spread.jelly import class_atom
 
 from .permissions import (
@@ -947,27 +949,20 @@ class SearchData(generics.ListAPIView):
 
 # 26-02-2025 Search
 
-from django.shortcuts import get_object_or_404
-from rest_framework import generics, permissions, status
-from rest_framework.response import Response
-from .models import Card, AllData
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def toggle_card(request, all_data_id):
+    user = request.user
+    all_data = get_object_or_404(AllData, id=all_data_id)
 
-class CardCreateAPIView(generics.CreateAPIView):
-    permission_classes = (permissions.IsAuthenticated,)
+    # Agar Card mavjud bo'lsa, o‘chiramiz
+    deleted, _ = Card.objects.filter(all_data=all_data, user=user).delete()
+    if deleted:
+        return Response({"detail": "Card o‘chirildi"}, status=status.HTTP_200_OK)
 
-    def post(self, request, all_data_id):
-        user = request.user
-        all_data = get_object_or_404(AllData, id=all_data_id)
-
-        # O'sha user va all_data uchun Card mavjud bo'lsa, o‘chiramiz
-        deleted, _ = Card.objects.filter(all_data=all_data, user=user).delete()
-        if deleted:
-            return Response({"detail": "Card o‘chirildi"}, status=status.HTTP_200_OK)
-
-        # Card yaratamiz (agar mavjud bo‘lmasa)
-        Card.objects.create(all_data=all_data, user=user)
-        return Response({"detail": "Card qo‘shildi"}, status=status.HTTP_201_CREATED)
-
+    # Aks holda, yangi Card yaratamiz
+    Card.objects.create(all_data=all_data, user=user)
+    return Response({"detail": "Card qo‘shildi"}, status=status.HTTP_201_CREATED)
 
 
 class CardListAPIView(generics.ListAPIView):

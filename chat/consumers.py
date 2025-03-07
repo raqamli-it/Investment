@@ -1,4 +1,6 @@
 import json
+
+from django.conf import settings
 from django.utils import timezone
 from channels.generic.websocket import AsyncWebsocketConsumer
 from channels.db import database_sync_to_async
@@ -95,6 +97,8 @@ class ChatConsumer(AsyncWebsocketConsumer):
         # User_id asosida chatlarni olish
         chats = Chat.objects.filter(user1_id=user_id) | Chat.objects.filter(user2_id=user_id)
         chats = chats.distinct()
+        site_url = getattr(settings, "SITE_URL", "")  # ✅ BASE_URL ni olish (agar mavjud bo‘lsa)
+        # media_url = getattr(settings, "MEDIA_URL", "/media/")  # MEDIA URL-ni olish
 
         chat_list = []
         for chat in chats:
@@ -107,6 +111,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
             chat_data = {
                 "other_user": {  # Bu yerda "other_user" o'rniga "sender" desak ham bo'ladi
                     "id": sender_user.id,
+                    "photo": f"{site_url}{sender_user.photo.url}" if sender_user.photo else None,
                     "username": sender_user.first_name,
                 },
                 "last_message": last_message.content if last_message else "",
@@ -335,11 +340,14 @@ class GroupChatConsumer(AsyncWebsocketConsumer):
 
     @database_sync_to_async
     def get_user_groups(self, user):
+        site_url = getattr(settings, "SITE_URL", "")  # ✅ BASE_URL ni olish (agar mavjud bo‘lsa)
+        media_url = getattr(settings, "MEDIA_URL", "/media/")  # MEDIA URL-ni olish
         """Foydalanuvchi obuna bo‘lgan barcha guruhlarni olish"""
         groups = GroupChat.objects.filter(members=user).prefetch_related("messages")
         return [
             {
                 "id": group.id,
+                "image": f"{site_url}{media_url}{group.image}" if group.image else None,  # ✅ To‘liq URL
                 "name": group.name,
                 "last_message": (group.messages.last().content if group.messages.exists() else ""),
                 "last_updated": group.messages.last().created_at.isoformat() if group.messages.exists() else "",

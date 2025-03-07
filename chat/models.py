@@ -53,6 +53,7 @@ class Message(models.Model):
 
 
 class GroupChat(models.Model):
+    image = models.ImageField(upload_to='group_images/', blank=True, null=True)  # Rasmni saqlash
     name = models.CharField(max_length=255)
     members = models.ManyToManyField(User, related_name="group_chats")
     created_at = models.DateTimeField(auto_now_add=True)

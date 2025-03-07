@@ -13,7 +13,7 @@ from .views import (
     MainDataAPIView, FinancialDataAPIView, ObjectPhotoViewList, AllDataCatListAPIView,
     CategoryRetrieveView, AreaAPIDeatilView, AreaMainAPIListView, IntroView, PhoneView, UsageProcedureView, OfferView,
     UserCheckingDataViewSet, UserApprovedDataViewSet, UserRejectedDataViewSet, ViewCountAllDataView, TopAllDataView,
-    DevicesView, DevicesCreateView, ExchangeRatesView, SearchData, CardCreateAPIView, CardListAPIView,
+    DevicesView, DevicesCreateView, ExchangeRatesView, SearchData, CardListAPIView, toggle_card,
 )
 
 router = DefaultRouter()
@@ -83,7 +83,7 @@ urlpatterns = [
 
     # 2025-02-05 sanada qoshilgan kodlar dollar kursi
     path('exchange-rate/', ExchangeRatesView.as_view(), name='exchange_rate'),
-    path('cards/create/<int:all_data_id>/', CardCreateAPIView.as_view(), name='card-create'),
+    path('cards/create/<int:all_data_id>/', toggle_card, name='card-create'),
     path('card-list/', CardListAPIView.as_view(), name='card-list'),
 
 ]

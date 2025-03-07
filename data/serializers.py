@@ -449,7 +449,7 @@ class AllDataListSerializer(serializers.ModelSerializer):
         return None  # Agar hech qanday rasm bo'lmasa, `None` qaytarish
 
     def get_category_name(self, obj):
-        if obj.main_data:
+        if obj.main_data and obj.main_data.category:
             return obj.main_data.category.category  # Category modelidagi 'category' maydonidan qiymatni oladi
         return None  # Agar category yo'q bo'lsa, None qaytariladi
 
@@ -739,7 +739,7 @@ class OfferSerializer(serializers.ModelSerializer):
 class IntroSerializer(serializers.ModelSerializer):
     class Meta:
         model = Intro
-        fields = ['text_1', 'text_2', 'image']
+        fields = ['text_1_uz', 'text_1_ru', 'text_1_en', 'text_2_uz', 'text_2_ru', 'text_2_en', 'image']
 
     def get_image(self, obj):
         request = self.context.get('request')
@@ -760,7 +760,7 @@ class DevicesSerializer(serializers.ModelSerializer):
 
 class CardSerializer(serializers.ModelSerializer):
     card = AllDataListSerializer(source="all_data")
+
     class Meta:
         model = Card
         fields = ('id', 'card', 'user', 'created_at')
-

@@ -1,6 +1,6 @@
 from modeltranslation.translator import TranslationOptions, register
 
-from data.models import Category, Area
+from data.models import Category, Area, Intro
 
 from news.models import News
 
@@ -18,3 +18,8 @@ class CategoryTranslationOptions(TranslationOptions):
 @register(News)
 class NewsTranslationOptions(TranslationOptions):
     fields = ('title', 'body')
+
+
+@register(Intro)
+class IntroTranslationOptions(TranslationOptions):
+    fields = ('text_1', 'text_2')
