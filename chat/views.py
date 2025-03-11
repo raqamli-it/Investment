@@ -1,40 +1,26 @@
-# from rest_framework.views import APIView
-# from rest_framework.response import Response
-# from .models import Chat, Message
-# from .serializers import MessageSerializer, ChatSerializer
-# from rest_framework import viewsets
-# from rest_framework.permissions import IsAuthenticated
-#
-#
-# class ChatViewSet(viewsets.ReadOnlyModelViewSet):
-#     serializer_class = ChatSerializer
-#     permission_classes = [IsAuthenticated]
-#
-#     def get_queryset(self):
-#         user = self.request.user
-#         # Foydalanuvchining barcha chatlarini olish
-#         return Chat.objects.filter(user1=user).union(Chat.objects.filter(user2=user))
-#
-#
-# class ChatMessagesAPIView(APIView):
-#     permission_classes = [IsAuthenticated]
-#
-#     def get(self, request, chat_id):
-#         """
-#         Chat ID asosida barcha xabarlarni qaytarish.
-#         Faqat chat ishtirokchilari xabarlarni ko‘ra oladi.
-#         """
-#         # Chat mavjudligini tekshirish
-#         try:
-#             chat = Chat.objects.get(id=chat_id)
-#         except Chat.DoesNotExist:
-#             return Response({"error": "Chat not found"}, status=404)
-#
-#         # Faqat chat ishtirokchilari ma'lumotlarni ko‘ra olishi uchun ruxsat
-#         if request.user not in [chat.user1, chat.user2]:
-#             return Response({"error": "You do not have permission to access this chat"}, status=403)
-#
-#         # Xabarlarni olish va serializer yordamida qaytarish
-#         messages = Message.objects.filter(chat=chat).order_by('created_at')
-#         serializer = MessageSerializer(messages, many=True)
-#         return Response(serializer.data)
+from rest_framework.views import APIView
+from rest_framework import status
+from django.shortcuts import get_object_or_404
+from rest_framework import generics, permissions
+from rest_framework.response import Response
+from chat.models import Notification
+from chat.serializers import NotificationSerializer
+
+
+class NotificationListAPIView(generics.ListAPIView):
+    """
+    Foydalanuvchining barcha notifikatsiyalarini olish.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+    serializer_class = NotificationSerializer
+
+    def get_queryset(self):
+        return Notification.objects.filter(user=self.request.user).order_by('-created_at')
+
+
+class MarkNotificationRead(APIView):
+    def post(self, request, notification_id):
+        notification = get_object_or_404(Notification, id=notification_id, user=request.user)
+        notification.is_read = True
+        notification.save()
+        return Response({"message": "Notification marked as read"}, status=status.HTTP_200_OK)

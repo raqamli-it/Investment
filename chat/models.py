@@ -84,3 +84,15 @@ class GroupMessageRead(models.Model):
 
     def __str__(self):
         return f"{self.user.username} - {self.message.id}: {'Read' if self.is_read else 'Unread'}"
+
+
+class Notification(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="notifications")  # Kimga yuborilgan
+    message = models.TextField()  # Xabar matni
+    group_id = models.IntegerField()  # Xabar matni
+    image = models.URLField(blank=True, null=True)  # Guruh rasmi uchun URL
+    created_at = models.DateTimeField(auto_now_add=True)  # Xabar yuborilgan vaqt
+    is_read = models.BooleanField(default=False)  # O'qilgan yoki yo'q
+
+    def __str__(self):
+        return f"Notification for {self.user.username}: {self.message}"

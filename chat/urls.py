@@ -1,7 +1,7 @@
 from django.urls import path
-# from .views import ChatMessagesAPIView, ChatViewSet
+from chat.views import NotificationListAPIView, MarkNotificationRead
 
 urlpatterns = [
-    # path('chat/<int:chat_id>/messages/', ChatMessagesAPIView.as_view(), name='chat_messages'),
-    # path('api/chat/', ChatViewSet.as_view({'get': 'list'}), name='chat-list'),
+    path('notifications/', NotificationListAPIView.as_view(), name='notification-list'),
+    path('notifications/<int:notification_id>/read', MarkNotificationRead.as_view(), name='mark_notification_read'),
 ]
