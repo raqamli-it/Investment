@@ -1,6 +1,7 @@
 import json
 
 from django.conf import settings
+from django.db.models import Q
 from django.utils import timezone
 from channels.generic.websocket import AsyncWebsocketConsumer
 from channels.db import database_sync_to_async
@@ -128,10 +129,20 @@ class ChatConsumer(AsyncWebsocketConsumer):
     async def receive(self, text_data):
         # Xabar ma'lumotlarini olish
         data = json.loads(text_data)
+
+        search_query = data.get("search", "").strip()
+
+        if search_query:
+            search_results = await self.search_chats_and_groups(self.user.id, search_query)
+            await self.send(text_data=json.dumps({
+                "type": "search_results",
+                "results": search_results
+            }))
+            return
         message = data.get("message")
         timestamp = data.get("timestamp", timezone.localtime(timezone.now()))
 
-        if self.user.is_authenticated and self.chat:
+        if self.user.is_authenticated and hasattr(self, "chat"):
             # Xabarni bazaga saqlash
             message_obj = await database_sync_to_async(Message.objects.create)(
                 chat=self.chat,
@@ -208,6 +219,69 @@ class ChatConsumer(AsyncWebsocketConsumer):
             "type": "chat_list",
             "chats": event["chats"]
         }))
+
+    @database_sync_to_async
+    def search_chats_and_groups(self, user_id, search_query=""):
+        """Foydalanuvchining shaxsiy chatlari va guruhlarini qidirish"""
+        if not search_query.strip():
+            return []  # ⚠️ Agar qidiruv so‘rovi bo‘lmasa, bo‘sh ro‘yxat qaytariladi.
+
+        # ✅ Shaxsiy chatlarni olish
+        chats = Chat.objects.filter(
+            (Q(user1_id=user_id) | Q(user2_id=user_id)) & Q(
+                Q(user1__first_name__icontains=search_query) |
+                Q(user2__first_name__icontains=search_query)
+            )
+        ).distinct().prefetch_related("messages")
+
+        # ✅ Guruh chatlarini olish
+        groups = GroupChat.objects.filter(
+            members__id=user_id, name__icontains=search_query
+        ).prefetch_related("messages")
+
+        site_url = getattr(settings, "SITE_URL", "")  # ✅ BASE_URL
+        chat_list = []
+
+        # ✅ Shaxsiy chatlar
+        for chat in chats:
+            last_message = chat.messages.last()
+            unread_messages = chat.messages.filter(is_read=False).exclude(sender_id=user_id).count()
+
+            other_user = chat.user1 if chat.user2.id == user_id else chat.user2
+
+            chat_list.append({
+                "type": "private",
+                "other_user": {
+                    "id": other_user.id,
+                    "photo": f"{site_url}{other_user.photo.url}" if other_user.photo else None,
+                    "username": other_user.first_name,
+                },
+                "last_message": last_message.content if last_message else "",
+                "last_updated": timezone.localtime(last_message.created_at).isoformat() if last_message else "",
+                "unread_messages": unread_messages,
+            })
+
+        # ✅ Guruh chatlar
+        for group in groups:
+            last_message = group.messages.last()
+            unread_count = GroupMessageRead.objects.filter(
+                message__group=group, user_id=user_id, is_read=False
+            ).exclude(message__sender_id=user_id).count()
+
+            chat_list.append({
+                "type": "group",
+                "id": group.id,
+                "image": f"{site_url}{group.image.url}" if group.image else None,
+                "name": group.name,
+                "last_message": last_message.content if last_message else "",
+                "last_updated": timezone.localtime(last_message.created_at).isoformat() if last_message else "",
+                "unread_count": unread_count,
+            })
+
+        # 🏆 Chatlarni oxirgi xabar bo‘yicha saralash
+        chat_list.sort(key=lambda x: x.get("last_updated", ""), reverse=True)
+
+        return chat_list
 
 
 import json

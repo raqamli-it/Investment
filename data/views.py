@@ -800,6 +800,8 @@ class UserCheckingDataViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mi
         'retrieve': AllDataSerializer,
         'update': AllDataUpdateSerializer  # Yangi serializer
     }
+
+    http_method_names = ['get', 'put', 'patch']
     permission_classes = (permissions.IsAuthenticated,)
 
     def get_queryset(self):

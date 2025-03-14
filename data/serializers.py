@@ -120,7 +120,7 @@ class ObjectPhotoSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = ObjectPhoto
-        fields = ('image',)
+        fields = ('id', 'image',)
 
 
 # Temur
@@ -293,11 +293,17 @@ class AllDataSerializer(serializers.ModelSerializer):
         )
 
 
+# !!!!!!!!!!!!
 class AllDataUpdateSerializer(serializers.ModelSerializer):
     main_data = MainDataRetrieveSerializer()
     informative_data = InformativeProDataSerializerGet()
     financial_data = FinancialDataRetrieveCustomSerializer()
     status = serializers.CharField(read_only=True)  # status o'zgartirilmaydi
+
+    # ✅ Yangi qo‘shilgan serializer`lar
+    product_photos = ProductPhotoSerializer(many=True, required=False, source='informative_data.product_photo_list')
+    cadastral_photos = CadastraInfoSerializer(many=True, required=False, source='informative_data.cadastral_info_list')
+    object_photos = ObjectPhotoSerializer(many=True, required=False, source='informative_data.object_foto')
 
     class Meta:
         model = AllData
@@ -309,12 +315,15 @@ class AllDataUpdateSerializer(serializers.ModelSerializer):
             'financial_data',
             'status',
             'date_created',
+            'product_photos',   # ✅ Rasm maydonlari qo‘shildi
+            'cadastral_photos',
+            'object_photos',
         )
 
     def update(self, instance, validated_data):
-        # Ichki modellarning ma'lumotlarini yangilash
+        # **Ichki modellarning ma'lumotlarini yangilash**
         main_data_data = validated_data.pop('main_data', None)
-        informative_data_data = validated_data.pop('informative_data', None)
+        informative_data_data = validated_data.pop('informative_data', {})  # ✅ None bo‘lsa, bo‘sh dict qilib olamiz
         financial_data_data = validated_data.pop('financial_data', None)
 
         if main_data_data:
@@ -332,8 +341,26 @@ class AllDataUpdateSerializer(serializers.ModelSerializer):
                 setattr(instance.financial_data, attr, value)
             instance.financial_data.save()
 
+        # ✅ Rasmlarni yangilash
+        self.update_photos(instance.informative_data.product_photo_list, informative_data_data.get('product_photo_list', []))
+        self.update_photos(instance.informative_data.cadastral_info_list, informative_data_data.get('cadastral_info_list', []))
+        self.update_photos(instance.informative_data.object_foto, informative_data_data.get('object_foto', []))
+
         instance.save()
         return instance
+
+    def update_photos(self, photo_queryset, new_photos):
+        """Eski rasmlarni o‘chirib, yangilarini qo‘shish."""
+        if not new_photos:
+            return  # Agar yangi rasm bo‘lmasa, hech narsa qilmaymiz
+
+        # **Eski rasmlarni faqat yangi rasm kelsa o‘chiramiz**
+        photo_queryset.all().delete()
+
+        # **Yangilarini qo‘shish**
+        for photo_data in new_photos:
+            photo_queryset.create(**photo_data)  # ✅ ManyToMany yoki ForeignKey bo‘lsa, `create()` ishlaydi
+
 
 
 class AllDataFilterSerializer(serializers.ModelSerializer):
