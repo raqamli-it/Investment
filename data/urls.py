@@ -13,7 +13,7 @@ from .views import (
     MainDataAPIView, FinancialDataAPIView, ObjectPhotoViewList, AllDataCatListAPIView,
     CategoryRetrieveView, AreaAPIDeatilView, AreaMainAPIListView, IntroView, PhoneView, UsageProcedureView, OfferView,
     UserCheckingDataViewSet, UserApprovedDataViewSet, UserRejectedDataViewSet, ViewCountAllDataView, TopAllDataView,
-    DevicesView, DevicesCreateView, ExchangeRatesView, SearchData, CardListAPIView, toggle_card,
+    DevicesView, DevicesCreateView, ExchangeRatesView, SearchData, CardListAPIView, toggle_card, AllDataMapFilterView,
 )
 
 router = DefaultRouter()
@@ -59,7 +59,8 @@ urlpatterns = [
     path('location', LocationView.as_view()),
     path('approve-reject-investor', ApproveRejectView.as_view()),
     path('investor-info-own', InvestorInfoOwnListView.as_view()),
-    path('all-data-filter', AllDataFilterView.as_view()),
+    path('all-data-filter', AllDataMapFilterView.as_view()),
+    path('all-data-filter-list', AllDataFilterView.as_view()),
     path('all-data-by-lat-long-distance-filter', AllDataFilterByLatLongDistanceView.as_view()),
 
     path('smart-note-delete/<pk>', SmartNoteDestroyView.as_view()),

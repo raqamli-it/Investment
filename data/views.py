@@ -433,8 +433,63 @@ categories = openapi.Parameter(
 @method_decorator(name='get', decorator=swagger_auto_schema(manual_parameters=[
     categories,
 ]))
-class AllDataFilterView(generics.ListAPIView):
+class AllDataMapFilterView(generics.ListAPIView):
     serializer_class = AllDataFilterSerializer
+    permission_classes = (permissions.AllowAny,)
+
+    # pagination_class = TenPagesPagination
+
+    def get_queryset(self):
+        data = self.request.GET.dict()
+        queryset = Q(status=Status.APPROVED)
+
+        if 'categories' in data:
+            category_list = list(map(int, data['categories'].split(',')))
+            queryset &= Q(main_data__category__pk__in=category_list)
+
+        if 'locations' in data:
+            location_list = []
+            for location in data['locations'].split(','):
+                location_list.append(int(location))
+            queryset &= Q(main_data__location__pk__in=location_list)
+
+        startprice = data.get('startprice', None)
+        endprice = data.get('endprice', None)
+
+        if startprice and endprice:
+            queryset &= Q(new_price_dollar__gte=int(startprice), new_price_dollar__lte=int(endprice))
+        elif startprice:  # faqat startprice bo'lsa
+            queryset &= Q(new_price_dollar__gte=int(startprice))
+
+        datas = AllData.objects.annotate(
+            latest_gbp_price=Subquery(CurrencyPrice.objects.filter(code='GBP').order_by('-date').values('cb_price')[:1],
+                                      output_field=DecimalField(max_digits=18, decimal_places=2)),
+            latest_eur_price=Subquery(CurrencyPrice.objects.filter(code='EUR').order_by('-date').values('cb_price')[:1],
+                                      output_field=DecimalField(max_digits=18, decimal_places=2)),
+            latest_usd_price=Subquery(CurrencyPrice.objects.filter(code='USD').order_by('-date').values('cb_price')[:1],
+                                      output_field=DecimalField(max_digits=18, decimal_places=2)),
+        ).annotate(
+            new_price_dollar=Case(
+                When(financial_data__currency__code='GBP',
+                     then=F('financial_data__authorized_capital') * F('latest_gbp_price') / F('latest_usd_price')),
+                When(financial_data__currency__code='EUR',
+                     then=F('financial_data__authorized_capital') * F('latest_eur_price') / F('latest_usd_price')),
+                When(financial_data__currency__code='UZS',
+                     then=F('financial_data__authorized_capital') / F('latest_usd_price')),
+                When(financial_data__currency__code='USD',
+                     then=F('financial_data__authorized_capital') * F('latest_usd_price') / F('latest_usd_price')),
+                default=F('financial_data__authorized_capital'),
+                output_field=DecimalField(max_digits=18, decimal_places=2)
+            )
+        ).filter(queryset)
+        return datas
+
+
+@method_decorator(name='get', decorator=swagger_auto_schema(manual_parameters=[
+    categories,
+]))
+class AllDataFilterView(generics.ListAPIView):
+    serializer_class = AllDataListSerializer
     permission_classes = (permissions.AllowAny,)
 
     # pagination_class = TenPagesPagination
