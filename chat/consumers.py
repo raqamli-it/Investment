@@ -83,15 +83,27 @@ class ChatConsumer(AsyncWebsocketConsumer):
     def get_chat_history(self):
         # Foydalanuvchilar o'rtasidagi barcha xabarlarni olish
         messages = Message.objects.filter(chat=self.chat).order_by("created_at")
-        return [
-            {
-                "sender": message.sender.id,
-                "message": message.content,
-                "timestamp": message.created_at.isoformat(),
-                "is_read": message.is_read,  # Xabarni o'qilganligini ko'rsatish
-            }
-            for message in messages
-        ]
+        # Chatdagi boshqa foydalanuvchini aniqlash
+        other_user = self.chat.user1 if self.chat.user2.id == self.user.id else self.chat.user2
+
+        site_url = getattr(settings, "SITE_URL", "")  # Saytning bazaviy URL manzili
+
+        return {
+            "other_user": {
+                "id": other_user.id,
+                "photo": f"{site_url}{other_user.photo.url}" if other_user.photo else None,
+                "username": other_user.first_name,
+            },
+            "messages": [
+                {
+                    "sender": message.sender.id,
+                    "message": message.content,
+                    "timestamp": message.created_at.isoformat(),
+                    "is_read": message.is_read,  # Xabar o‘qilganligini ko‘rsatish
+                }
+                for message in messages
+            ]
+        }
 
     @database_sync_to_async
     def get_user_chats(self, user_id):
@@ -348,6 +360,8 @@ class GroupChatConsumer(AsyncWebsocketConsumer):
             return
 
         if self.user.is_authenticated and self.group_id and message:
+            site_url = getattr(settings, "SITE_URL", "")  # ✅ BASE_URL ni olish (agar mavjud bo‘lsa)
+            media_url = getattr(settings, "MEDIA_URL", "/media/")  # MEDIA URL-ni olish
             timestamp = timezone.localtime(timezone.now())
 
             message_obj = await database_sync_to_async(GroupMessage.objects.create)(
@@ -386,7 +400,8 @@ class GroupChatConsumer(AsyncWebsocketConsumer):
                     "message_id": message_obj.id,
                     "message": message_obj.content,
                     "sender": self.user.id,
-                    "sender_name": self.user.username,
+                    "sender_name": self.user.first_name,
+                    "sender_photo": f"{site_url}{media_url}{self.user.photo}" if self.user.photo else None,
                     "timestamp": timestamp.isoformat(),
                 }
             )
@@ -399,6 +414,7 @@ class GroupChatConsumer(AsyncWebsocketConsumer):
             "message": event["message"],
             "sender": event["sender"],
             "sender_name": event["sender_name"],
+            "sender_photo": event["sender_photo"],
             "timestamp": event["timestamp"],
         }))
 
@@ -434,6 +450,9 @@ class GroupChatConsumer(AsyncWebsocketConsumer):
 
     @database_sync_to_async
     def get_chat_history(self):
+        site_url = getattr(settings, "SITE_URL", "")
+        media_url = getattr(settings, "MEDIA_URL", "/media/")  # MEDIA URL-ni olish
+
         """Guruh tarixini olish va oxirgi xabarni o‘qilgan deb belgilash"""
         messages = GroupMessage.objects.filter(group_id=self.group_id).order_by("created_at").select_related("sender")
         members = list(GroupChat.objects.get(id=self.group_id).members.all())
@@ -441,8 +460,10 @@ class GroupChatConsumer(AsyncWebsocketConsumer):
             {
                 "id": message.id,
                 "sender": message.sender.id,
-                "sender_name": message.sender.username,
+                "sender_name": message.sender.first_name,
                 "message": message.content,
+                # "sender_photo": message.sender.photo.url,
+                "sender_photo": f"{site_url}{media_url}{message.sender.photo}" if message.sender.photo else None,
                 "timestamp": message.created_at.isoformat(),
             }
             for message in messages
