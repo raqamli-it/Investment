@@ -476,10 +476,14 @@ class AllDataListSerializer(serializers.ModelSerializer):
         return None  # Agar hech qanday rasm bo'lmasa, `None` qaytarish
 
     def get_category_name(self, obj):
-        if obj.main_data and obj.main_data.category:
-            return obj.main_data.category.category  # Category modelidagi 'category' maydonidan qiymatni oladi
-        return None  # Agar category yo'q bo'lsa, None qaytariladi
-
+        category = obj.main_data.category if obj.main_data else None
+        if category:
+            return {
+                "uz": category.category_uz,
+                "ru": category.category_ru,
+                "en": category.category_en,
+            }
+        return None
 
 class AllDataAllUsersListSerializer(serializers.ModelSerializer):
     enterprise_name = serializers.SerializerMethodField()
