@@ -453,6 +453,7 @@ class AllDataListSerializer(serializers.ModelSerializer):
     enterprise_name = serializers.SerializerMethodField()
     first_photo = serializers.SerializerMethodField()
     category_name = serializers.SerializerMethodField()
+    location_name = serializers.SerializerMethodField()
 
     class Meta:
         model = AllData
@@ -460,6 +461,7 @@ class AllDataListSerializer(serializers.ModelSerializer):
             'id',
             'enterprise_name',
             'category_name',
+            'location_name',
             'status',
             'date_created',
             'first_photo'
@@ -484,6 +486,17 @@ class AllDataListSerializer(serializers.ModelSerializer):
                 "en": category.category_en,
             }
         return None
+
+    def get_location_name(self, obj):
+        area = obj.main_data.location if obj.main_data else None
+        if area:
+            return {
+                "uz": area.location_uz,
+                "ru": area.location_ru,
+                "en": area.location_en,
+            }
+        return None
+
 
 class AllDataAllUsersListSerializer(serializers.ModelSerializer):
     enterprise_name = serializers.SerializerMethodField()
