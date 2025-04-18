@@ -49,16 +49,24 @@ class AlldateCategorySerializer(serializers.ModelSerializer):
         return obj.informative_data.formation_date
 
     def get_main_cat(self, obj):
-        if obj.main_data.category:  # agar main_data da category mavjud bo'lsa
-            return obj.main_data.category.category
-        else:
-            return None
+        category = obj.main_data.category if obj.main_data else None
+        if category:
+            return {
+                "uz": category.category_uz,
+                "ru": category.category_ru,
+                "en": category.category_en,
+            }
+        return None
 
     def get_main_area(self, obj):
-        if obj.main_data.location:  # agar main_data da category mavjud bo'lsa
-            return obj.main_data.location.location
-        else:
-            return None
+        area = obj.main_data.location if obj.main_data else None
+        if area:
+            return {
+                "uz": area.location_uz,
+                "ru": area.location_ru,
+                "en": area.location_en,
+            }
+        return None
 
     def get_main_obj_photo(self, obj):
         informative_model_photos = obj.informative_data.object_foto.all()
