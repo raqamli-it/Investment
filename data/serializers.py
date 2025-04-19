@@ -323,7 +323,7 @@ class AllDataUpdateSerializer(serializers.ModelSerializer):
             'financial_data',
             'status',
             'date_created',
-            'product_photos',   # ✅ Rasm maydonlari qo‘shildi
+            'product_photos',  # ✅ Rasm maydonlari qo‘shildi
             'cadastral_photos',
             'object_photos',
         )
@@ -350,8 +350,10 @@ class AllDataUpdateSerializer(serializers.ModelSerializer):
             instance.financial_data.save()
 
         # ✅ Rasmlarni yangilash
-        self.update_photos(instance.informative_data.product_photo_list, informative_data_data.get('product_photo_list', []))
-        self.update_photos(instance.informative_data.cadastral_info_list, informative_data_data.get('cadastral_info_list', []))
+        self.update_photos(instance.informative_data.product_photo_list,
+                           informative_data_data.get('product_photo_list', []))
+        self.update_photos(instance.informative_data.cadastral_info_list,
+                           informative_data_data.get('cadastral_info_list', []))
         self.update_photos(instance.informative_data.object_foto, informative_data_data.get('object_foto', []))
 
         instance.save()
@@ -368,7 +370,6 @@ class AllDataUpdateSerializer(serializers.ModelSerializer):
         # **Yangilarini qo‘shish**
         for photo_data in new_photos:
             photo_queryset.create(**photo_data)  # ✅ ManyToMany yoki ForeignKey bo‘lsa, `create()` ishlaydi
-
 
 
 class AllDataFilterSerializer(serializers.ModelSerializer):
@@ -489,6 +490,7 @@ class AllDataListSerializer(serializers.ModelSerializer):
         category = obj.main_data.category if obj.main_data else None
         if category:
             return {
+                "id": category.id,
                 "uz": category.category_uz,
                 "ru": category.category_ru,
                 "en": category.category_en,
@@ -499,6 +501,7 @@ class AllDataListSerializer(serializers.ModelSerializer):
         area = obj.main_data.location if obj.main_data else None
         if area:
             return {
+                "id": area.id,
                 "uz": area.location_uz,
                 "ru": area.location_ru,
                 "en": area.location_en,
