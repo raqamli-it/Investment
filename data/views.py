@@ -212,7 +212,13 @@ class CurrencyListView(generics.ListAPIView):
 class AllDataViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.RetrieveModelMixin):
     queryset = AllData.objects.filter(status=Status.APPROVED)
     permission_classes = (permissions.AllowAny,)
-    serializer_class = AllDataSerializer
+
+    # serializer_class = AllDataSerializer
+
+    def get_serializer_class(self):
+        if self.action == 'list':
+            return AllDataListSerializer
+        return AllDataSerializer
 
     def retrieve(self, request, *args, **kwargs):
         # Ma'lum bir objectni olish
