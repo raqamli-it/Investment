@@ -357,6 +357,23 @@ class GroupChatConsumer(AsyncWebsocketConsumer):
 
         if read and self.group_id:
             await self.mark_messages_as_read()
+
+            # 🔽 Guruh a'zolarini olish
+            members = await database_sync_to_async(
+                lambda: list(GroupChat.objects.get(id=self.group_id).members.all())
+            )()
+
+            # 🔽 Har bir a'zoga yangilangan group list yuborish
+            for member in members:
+                updated_groups = await self.get_user_groups(member)
+                await self.channel_layer.group_send(
+                    "global_group_updates",
+                    {
+                        "type": "group_list_update",
+                        "groups": updated_groups,
+                        "user_id": member.id
+                    }
+                )
             return
 
         if self.user.is_authenticated and self.group_id and message:
