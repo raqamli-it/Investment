@@ -353,6 +353,17 @@ class GroupChatConsumer(AsyncWebsocketConsumer):
         """Yangi xabar qabul qilish"""
         data = json.loads(text_data)
         message = data.get("message")
+
+        #group listidan search qilish
+        search_query = data.get("search", "").strip()
+        if search_query:
+            groups = await self.search_user_groups(self.user, search_query)
+            await self.send(json.dumps({
+                "type": "search_results",
+                "results": groups
+            }))
+            return
+
         read = data.get("read")
 
         if read and self.group_id:
