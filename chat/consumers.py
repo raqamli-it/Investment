@@ -354,7 +354,7 @@ class GroupChatConsumer(AsyncWebsocketConsumer):
         data = json.loads(text_data)
         message = data.get("message")
 
-        #group listidan search qilish.
+        #group listidan search qilish
         search_query = data.get("search", "").strip()
         if search_query:
             groups = await self.search_user_groups(self.user, search_query)
