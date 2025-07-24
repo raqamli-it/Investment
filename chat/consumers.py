@@ -509,3 +509,30 @@ class GroupChatConsumer(AsyncWebsocketConsumer):
         if hasattr(self, "room_group_name"):
             await self.channel_layer.group_discard(self.room_group_name, self.channel_name)
         await self.channel_layer.group_discard("global_group_updates", self.channel_name)
+
+    # group listidan search qilish
+    @database_sync_to_async
+    def search_user_groups(self, user, search_query):
+        site_url = getattr(settings, "SITE_URL", "")
+        media_url = getattr(settings, "MEDIA_URL", "/media/")
+
+        groups = GroupChat.objects.filter(
+            members=user,
+            name__icontains=search_query
+        ).prefetch_related("messages")
+
+        result = []
+        for group in groups:
+            last_message = group.messages.last()
+            result.append({
+                "type": "group",
+                "id": group.id,
+                "image": f"{site_url}{media_url}{group.image}" if group.image else None,
+                "name": group.name,
+                "last_message": last_message.content if last_message else "",
+                "last_updated": last_message.created_at.isoformat() if last_message else "",
+                "unread_count": GroupMessageRead.objects.filter(
+                    message__group=group, user=user, is_read=False
+                ).exclude(message__sender=user).count()
+            })
+        return result
