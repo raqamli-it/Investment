@@ -172,7 +172,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
                     "message": message_obj.content,
                     "sender": self.user.id,
                     "timestamp": timestamp.isoformat(),
-                    # "is_read": message_obj.is_read,
+                    "is_read": message_obj.is_read,
 
                 }
             )
@@ -222,7 +222,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
             "message": event["message"],
             "sender": event["sender"],
             "timestamp": event["timestamp"],
-            # "is_read": event.get("is_read", False)
+            "is_read": event.get("is_read", False)
         }))
 
     async def chat_list_update(self, event):
@@ -482,17 +482,24 @@ class GroupChatConsumer(AsyncWebsocketConsumer):
         media_url = getattr(settings, "MEDIA_URL", "/media/")  # MEDIA URL-ni olish
 
         """Guruh tarixini olish va oxirgi xabarni o‘qilgan deb belgilash"""
-        messages = GroupMessage.objects.filter(group_id=self.group_id).order_by("created_at").select_related("sender")
+        messages = GroupMessage.objects.filter(
+            group_id=self.group_id
+        ).order_by("created_at").select_related("sender")
+
         members = list(GroupChat.objects.get(id=self.group_id).members.all())
+
         return [
             {
                 "id": message.id,
                 "sender": message.sender.id,
                 "sender_name": message.sender.first_name,
                 "message": message.content,
-                # "sender_photo": message.sender.photo.url,
                 "sender_photo": f"{site_url}{media_url}{message.sender.photo}" if message.sender.photo else None,
                 "timestamp": message.created_at.isoformat(),
+                "read_by": list(  # ✅ Xabarni o‘qigan userlar ro‘yxati
+                    GroupMessageRead.objects.filter(message=message, is_read=True)
+                    .values_list("user_id", flat=True)
+                )
             }
             for message in messages
         ], members
