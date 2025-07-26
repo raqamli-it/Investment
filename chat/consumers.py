@@ -41,8 +41,8 @@ class ChatConsumer(AsyncWebsocketConsumer):
                     "messages": messages
                 }))
 
-                # bu yerda chaqirganimda notog'ri ishladi reacive da ishlatish kerak ekan...
-                # await self.mark_messages_as_read_and_update()
+                # Foydalanuvchi chatga kirganda barcha o'qilmagan xabarlarni o'qilgan deb belgilash
+                await self.mark_messages_as_read_and_update()
 
             else:
                 # receiver_id bo'lmagan holat, ya'ni chatlar ro'yxatini yuborish
@@ -142,14 +142,16 @@ class ChatConsumer(AsyncWebsocketConsumer):
         # Xabar ma'lumotlarini olish
         data = json.loads(text_data)
 
-        # Xabarlarni o‘qilgan deb belgilash
+        # Chat oynasiga kirganda, o'qilmagan xabarlarni o'qilgan deb belgilash
         read = data.get("read")
-        if read and self.chat:
-            await self.mark_messages_as_read_and_update()
+        if read and hasattr(self, "chat"):
+            has_unread_messages = await self.mark_messages_as_read()
+            if has_unread_messages:
+                await self.update_user_chats()
             return
 
-        search_query = data.get("search", "").strip()
 
+        search_query = data.get("search", "").strip()
         if search_query:
             search_results = await self.search_chats_and_groups(self.user.id, search_query)
             await self.send(text_data=json.dumps({
