@@ -1,5 +1,5 @@
 """
-WSGI config for einvestment project.
+WSGI einvestment for einvestment project.
 
 It exposes the WSGI callable as a module-level variable named ``application``.
 

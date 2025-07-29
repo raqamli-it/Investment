@@ -141,6 +141,13 @@ class ChatConsumer(AsyncWebsocketConsumer):
     async def receive(self, text_data):
         # Xabar ma'lumotlarini olish
         data = json.loads(text_data)
+        # me
+        command = data.get("command")
+
+        if command == "read_message":
+            message_type = data.get("message_type")  # 'private' or 'group'
+            message_id = data.get("message_id")
+            await self.mark_as_read(message_type, message_id) # me
 
         # Chat oynasiga kirganda, o'qilmagan xabarlarni o'qilgan deb belgilash
         read = data.get("read")
@@ -190,6 +197,44 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
             # Yangi xabar yuborilganda qabul qiluvchiga o'qilmagan deb belgilash
             await self.update_unread_status_for_receiver(message_obj)
+    # me
+    async def mark_as_read(self, message_type, message_id):
+        if message_type == "private":
+            await self.mark_private_message_as_read(message_id)
+        elif message_type == "group":
+            await self.mark_group_message_as_read(message_id)
+    # me
+    @database_sync_to_async
+    def mark_private_message_as_read(self, message_id):
+        try:
+            message = Message.objects.get(id=message_id)
+            # Faqat qabul qiluvchi o‘qigan bo‘lsa o‘zgartiramiz
+            if message.sender != self.user and not message.is_read:
+                message.is_read = True
+                message.save()
+        except Message.DoesNotExist:
+            pass
+    # me
+    @database_sync_to_async
+    def mark_group_message_as_read(self, message_id):
+        try:
+            group_message = GroupMessage.objects.get(id=message_id)
+            read_status, created = GroupMessageRead.objects.get_or_create(
+                message=group_message,
+                user=self.user,
+            )
+            if not read_status.is_read:
+                read_status.is_read = True
+                read_status.save()
+        except GroupMessage.DoesNotExist:
+            pass
+    # me
+    async def message_read(self, event):
+        await self.send(text_data=json.dumps({
+            "event": "message_read",
+            "message_id": event["message_id"],
+            "reader": event["reader"],
+        }))
 
     @database_sync_to_async
     def update_unread_status_for_receiver(self, message_obj):
