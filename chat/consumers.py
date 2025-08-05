@@ -1,12 +1,8 @@
-import json
-
 from django.conf import settings
 from django.db.models import Q
-from django.utils import timezone
 from channels.generic.websocket import AsyncWebsocketConsumer
 from channels.db import database_sync_to_async
 from .models import Chat, Message
-from urllib.parse import parse_qs
 
 
 class ChatConsumer(AsyncWebsocketConsumer):
@@ -138,16 +134,29 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
         return chat_list
 
+    async def notify_sender_about_read(self):
+        """Yuboruvchiga xabarning o‘qilganini real-time yuborish"""
+        # Chatdagi boshqa foydalanuvchini aniqlaymiz
+        other_user = self.chat.user1 if self.chat.user2.id == self.user.id else self.chat.user2
+        sender_group = f"user_{other_user.id}"
+
+        await self.channel_layer.group_send(
+            sender_group,
+            {
+                "type": "message_read_notification",
+                "chat_id": self.chat.id,
+            }
+        )
+
+    async def message_read_notification(self, event):
+        await self.send(text_data=json.dumps({
+            "type": "message_read",
+            "chat_id": event["chat_id"]
+        }))
+
     async def receive(self, text_data):
         # Xabar ma'lumotlarini olish
         data = json.loads(text_data)
-        # me
-        command = data.get("command")
-
-        if command == "read_message":
-            message_type = data.get("message_type")  # 'private' or 'group'
-            message_id = data.get("message_id")
-            await self.mark_as_read(message_type, message_id) # me
 
         # Chat oynasiga kirganda, o'qilmagan xabarlarni o'qilgan deb belgilash
         read = data.get("read")
@@ -155,8 +164,8 @@ class ChatConsumer(AsyncWebsocketConsumer):
             has_unread_messages = await self.mark_messages_as_read()
             if has_unread_messages:
                 await self.update_user_chats()
+                await self.notify_sender_about_read()
             return
-
 
         search_query = data.get("search", "").strip()
         if search_query:
@@ -197,44 +206,6 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
             # Yangi xabar yuborilganda qabul qiluvchiga o'qilmagan deb belgilash
             await self.update_unread_status_for_receiver(message_obj)
-    # me
-    async def mark_as_read(self, message_type, message_id):
-        if message_type == "private":
-            await self.mark_private_message_as_read(message_id)
-        elif message_type == "group":
-            await self.mark_group_message_as_read(message_id)
-    # me
-    @database_sync_to_async
-    def mark_private_message_as_read(self, message_id):
-        try:
-            message = Message.objects.get(id=message_id)
-            # Faqat qabul qiluvchi o‘qigan bo‘lsa o‘zgartiramiz
-            if message.sender != self.user and not message.is_read:
-                message.is_read = True
-                message.save()
-        except Message.DoesNotExist:
-            pass
-    # me
-    @database_sync_to_async
-    def mark_group_message_as_read(self, message_id):
-        try:
-            group_message = GroupMessage.objects.get(id=message_id)
-            read_status, created = GroupMessageRead.objects.get_or_create(
-                message=group_message,
-                user=self.user,
-            )
-            if not read_status.is_read:
-                read_status.is_read = True
-                read_status.save()
-        except GroupMessage.DoesNotExist:
-            pass
-    # me
-    async def message_read(self, event):
-        await self.send(text_data=json.dumps({
-            "event": "message_read",
-            "message_id": event["message_id"],
-            "reader": event["reader"],
-        }))
 
     @database_sync_to_async
     def update_unread_status_for_receiver(self, message_obj):
@@ -407,7 +378,7 @@ class GroupChatConsumer(AsyncWebsocketConsumer):
         data = json.loads(text_data)
         message = data.get("message")
 
-        #group listidan search qilish
+        # group listidan search qilish
         search_query = data.get("search", "").strip()
         if search_query:
             groups = await self.search_user_groups(self.user, search_query)
@@ -422,12 +393,12 @@ class GroupChatConsumer(AsyncWebsocketConsumer):
         if read and self.group_id:
             await self.mark_messages_as_read()
 
-            # 🔽 Guruh a'zolarini olish
+            # Guruh a'zolarini olish
             members = await database_sync_to_async(
                 lambda: list(GroupChat.objects.get(id=self.group_id).members.all())
             )()
 
-            # 🔽 Har bir a'zoga yangilangan group list yuborish
+            # Har bir a'zoga yangilangan group list yuborish
             for member in members:
                 updated_groups = await self.get_user_groups(member)
                 await self.channel_layer.group_send(
