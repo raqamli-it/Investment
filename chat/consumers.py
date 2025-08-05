@@ -4,8 +4,6 @@ from channels.generic.websocket import AsyncWebsocketConsumer
 from channels.db import database_sync_to_async
 from .models import Chat, Message
 
-# global joyga (modul sathi) qo'yiladi
-connected_users = set() # mee
 
 class ChatConsumer(AsyncWebsocketConsumer):
     async def connect(self):
@@ -16,7 +14,6 @@ class ChatConsumer(AsyncWebsocketConsumer):
         self.receiver_id = query_params.get("receiver_id", [None])[0]
 
         if self.user.is_authenticated:
-            connected_users.add(self.user.id) # me
             if self.receiver_id:
                 # receiver_id orqali chatni olish yoki yaratish
                 self.chat = await database_sync_to_async(Chat.get_or_create_chat)(
@@ -182,15 +179,13 @@ class ChatConsumer(AsyncWebsocketConsumer):
         timestamp = data.get("timestamp", timezone.localtime(timezone.now()))
 
         if self.user.is_authenticated and hasattr(self, "chat"):
-
-            is_receiver_online = int(self.receiver_id) in connected_users # meeee
             # Xabarni bazaga saqlash
             message_obj = await database_sync_to_async(Message.objects.create)(
                 chat=self.chat,
                 sender=self.user,
                 content=message,
                 created_at=timestamp,
-                is_read = False
+                # is_read = False
             )
 
             # Barcha ishtirokchilarga xabarni yuborish
