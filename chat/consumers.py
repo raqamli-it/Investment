@@ -4,6 +4,8 @@ from channels.generic.websocket import AsyncWebsocketConsumer
 from channels.db import database_sync_to_async
 from .models import Chat, Message
 
+# global joyga (modul sathi) qo'yiladi
+connected_users = set() # mee
 
 class ChatConsumer(AsyncWebsocketConsumer):
     async def connect(self):
@@ -11,10 +13,10 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
         # So'rov parametrlarini olish
         query_params = parse_qs(self.scope["query_string"].decode())
-        # self.receiver_id = query_params.get("receiver_id", [None])[0]
-        self.receiver_id = int(query_params.get("receiver_id", [0])[0])
+        self.receiver_id = query_params.get("receiver_id", [None])[0]
 
         if self.user.is_authenticated:
+            connected_users.add(self.user.id) # me
             if self.receiver_id:
                 # receiver_id orqali chatni olish yoki yaratish
                 self.chat = await database_sync_to_async(Chat.get_or_create_chat)(
@@ -40,7 +42,6 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
                 # Foydalanuvchi chatga kirganda barcha o'qilmagan xabarlarni o'qilgan deb belgilash
                 await self.mark_messages_as_read_and_update()
-                await self.notify_sender_about_read() # me
 
             else:
                 # receiver_id bo'lmagan holat, ya'ni chatlar ro'yxatini yuborish
@@ -59,12 +60,6 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 }))
         else:
             await self.close()
-
-    async def receive_json(self, content):
-        if content.get("type") == "read_messages":
-            await self.mark_messages_as_read_and_update()
-            await self.notify_sender_about_read()
-
 
     async def mark_messages_as_read_and_update(self):
         has_unread_messages = await self.mark_messages_as_read()
@@ -187,12 +182,15 @@ class ChatConsumer(AsyncWebsocketConsumer):
         timestamp = data.get("timestamp", timezone.localtime(timezone.now()))
 
         if self.user.is_authenticated and hasattr(self, "chat"):
+
+            is_receiver_online = int(self.receiver_id) in connected_users # meeee
             # Xabarni bazaga saqlash
             message_obj = await database_sync_to_async(Message.objects.create)(
                 chat=self.chat,
                 sender=self.user,
                 content=message,
                 created_at=timestamp,
+                is_read=is_receiver_online # meee
                 # is_read = False
             )
 
