@@ -39,6 +39,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
                 # Foydalanuvchi chatga kirganda barcha o'qilmagan xabarlarni o'qilgan deb belgilash
                 await self.mark_messages_as_read_and_update()
+                await self.notify_sender_about_read() # me
 
             else:
                 # receiver_id bo'lmagan holat, ya'ni chatlar ro'yxatini yuborish
