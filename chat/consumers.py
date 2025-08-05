@@ -11,7 +11,8 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
         # So'rov parametrlarini olish
         query_params = parse_qs(self.scope["query_string"].decode())
-        self.receiver_id = query_params.get("receiver_id", [None])[0]
+        # self.receiver_id = query_params.get("receiver_id", [None])[0]
+        self.receiver_id = int(query_params.get("receiver_id", [0])[0])
 
         if self.user.is_authenticated:
             if self.receiver_id:
@@ -58,6 +59,12 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 }))
         else:
             await self.close()
+
+    async def receive_json(self, content):
+        if content.get("type") == "read_messages":
+            await self.mark_messages_as_read_and_update()
+            await self.notify_sender_about_read()
+
 
     async def mark_messages_as_read_and_update(self):
         has_unread_messages = await self.mark_messages_as_read()
