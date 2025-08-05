@@ -190,8 +190,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 sender=self.user,
                 content=message,
                 created_at=timestamp,
-                is_read=is_receiver_online # meee
-                # is_read = False
+                is_read = False
             )
 
             # Barcha ishtirokchilarga xabarni yuborish
