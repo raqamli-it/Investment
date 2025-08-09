@@ -202,13 +202,14 @@ class ChatConsumer(AsyncWebsocketConsumer):
             # Yangi xabar yuborilganda qabul qiluvchiga o'qilmagan deb belgilash
             await self.update_unread_status_for_receiver(message_obj)
 
-    async def notify_sender_about_read(self, read_message_ids): # me
+    async def notify_sender_about_read(self, read_message_ids):
         """
         Qarshi foydalanuvchiga xabarlar o'qilganini real-time yuboradi.
         """
         other_user_id = self.chat.user1.id if self.chat.user2.id == self.user.id else self.chat.user2.id
         other_user_room = f"user_{other_user_id}"
 
+        # 1️⃣ Senderga "messages_read" event yuborish
         await self.channel_layer.group_send(
             other_user_room,
             {
@@ -217,6 +218,20 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 "chat_id": self.chat.id
             }
         )
+
+        # 2️⃣ Oxirgi o‘qilgan xabarlarni "chat_message" qilib yangilab yuborish
+        for msg_id in read_message_ids:
+            message = await database_sync_to_async(Message.objects.get)(id=msg_id)
+            await self.channel_layer.group_send(
+                f"chat_{self.chat.id}",
+                {
+                    "type": "chat_message",
+                    "message": message.content,
+                    "sender": message.sender.id,
+                    "timestamp": message.created_at.isoformat(),
+                    "is_read": True
+                }
+            )
 
     @database_sync_to_async
     def update_unread_status_for_receiver(self, message_obj):
