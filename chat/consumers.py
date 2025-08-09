@@ -221,7 +221,9 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
         # 2️⃣ Oxirgi o‘qilgan xabarlarni "chat_message" qilib yangilab yuborish
         for msg_id in read_message_ids:
-            message = await database_sync_to_async(Message.objects.get)(id=msg_id)
+            message = await database_sync_to_async(
+                lambda: Message.objects.select_related("sender").get(id=msg_id)
+            )()
             await self.channel_layer.group_send(
                 f"chat_{self.chat.id}",
                 {
