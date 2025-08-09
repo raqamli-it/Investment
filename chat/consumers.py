@@ -81,22 +81,6 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
         return has_unread_messages, read_ids # read_ids ni ham qoshdim!!!!
 
-    async def notify_sender_about_read(self, read_message_ids): # me
-        """
-        Qarshi foydalanuvchiga xabarlar o'qilganini real-time yuboradi.
-        """
-        other_user_id = self.chat.user1.id if self.chat.user2.id == self.user.id else self.chat.user2.id
-        other_user_room = f"user_{other_user_id}"
-
-        await self.channel_layer.group_send(
-            other_user_room,
-            {
-                "type": "messages_read",
-                "message_ids": read_message_ids,
-                "chat_id": self.chat.id
-            }
-        )
-
     async def messages_read(self, event): # me
         await self.send(text_data=json.dumps({
             "type": "messages_read",
@@ -171,10 +155,10 @@ class ChatConsumer(AsyncWebsocketConsumer):
         # Chat oynasiga kirganda, o'qilmagan xabarlarni o'qilgan deb belgilash
         read = data.get("read")
         if read and hasattr(self, "chat"):
-            has_unread_messages = await self.mark_messages_as_read()
+            has_unread_messages, read_message_ids = await self.mark_messages_as_read() # me
             if has_unread_messages:
                 await self.update_user_chats()
-                await self.notify_sender_about_read()
+                await self.notify_sender_about_read(read_message_ids) # me
             return
 
         search_query = data.get("search", "").strip()
@@ -185,6 +169,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 "results": search_results
             }))
             return
+
         message = data.get("message")
         timestamp = data.get("timestamp", timezone.localtime(timezone.now()))
 
@@ -216,6 +201,22 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
             # Yangi xabar yuborilganda qabul qiluvchiga o'qilmagan deb belgilash
             await self.update_unread_status_for_receiver(message_obj)
+
+    async def notify_sender_about_read(self, read_message_ids): # me
+        """
+        Qarshi foydalanuvchiga xabarlar o'qilganini real-time yuboradi.
+        """
+        other_user_id = self.chat.user1.id if self.chat.user2.id == self.user.id else self.chat.user2.id
+        other_user_room = f"user_{other_user_id}"
+
+        await self.channel_layer.group_send(
+            other_user_room,
+            {
+                "type": "messages_read",
+                "message_ids": read_message_ids,
+                "chat_id": self.chat.id
+            }
+        )
 
     @database_sync_to_async
     def update_unread_status_for_receiver(self, message_obj):
