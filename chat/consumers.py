@@ -64,7 +64,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
             # Chatlar ro'yxatini yangilash (hozirgi kod)
             await self.update_user_chats()
             # O'qilgan xabarlar uchun event yuborish (yangi kod)
-            await self.notify_sender_about_read(read_message_ids) # me
+            await self.notify_sender_about_read(read_message_ids)  # me
 
     @database_sync_to_async
     def mark_messages_as_read(self):
@@ -73,15 +73,15 @@ class ChatConsumer(AsyncWebsocketConsumer):
             is_read=False
         ).exclude(sender=self.user)
 
-        has_unread_messages = unread_messages.exists() # me
-        read_ids = list(unread_messages.values_list("id", flat=True)) # me
+        has_unread_messages = unread_messages.exists()  # me
+        read_ids = list(unread_messages.values_list("id", flat=True))  # me
 
         if has_unread_messages:
             unread_messages.update(is_read=True)
 
-        return has_unread_messages, read_ids # read_ids ni ham qoshdim!!!!
+        return has_unread_messages, read_ids  # read_ids ni ham qoshdim!!!!
 
-    async def messages_read(self, event): # me
+    async def messages_read(self, event):  # me
         await self.send(text_data=json.dumps({
             "type": "messages_read",
             "chat_id": event["chat_id"],
@@ -147,7 +147,6 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
         return chat_list
 
-
     async def receive(self, text_data):
         # Xabar ma'lumotlarini olish
         data = json.loads(text_data)
@@ -155,10 +154,10 @@ class ChatConsumer(AsyncWebsocketConsumer):
         # Chat oynasiga kirganda, o'qilmagan xabarlarni o'qilgan deb belgilash
         read = data.get("read")
         if read and hasattr(self, "chat"):
-            has_unread_messages, read_message_ids = await self.mark_messages_as_read() # me
+            has_unread_messages, read_message_ids = await self.mark_messages_as_read()  # me
             if has_unread_messages:
                 await self.update_user_chats()
-                await self.notify_sender_about_read(read_message_ids) # me
+                await self.notify_sender_about_read(read_message_ids)  # me
             return
 
         search_query = data.get("search", "").strip()
@@ -209,7 +208,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
         other_user_id = self.chat.user1.id if self.chat.user2.id == self.user.id else self.chat.user2.id
         other_user_room = f"user_{other_user_id}"
 
-        # 1️⃣ Senderga "messages_read" event yuborish
+        # Senderga "messages_read" event yuborish
         await self.channel_layer.group_send(
             other_user_room,
             {
@@ -219,7 +218,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
             }
         )
 
-        # 2️⃣ Oxirgi o‘qilgan xabarlarni "chat_message" qilib yangilab yuborish
+        # Oxirgi o‘qilgan xabarlarni "chat_message" qilib yangilab yuborish
         for msg_id in read_message_ids:
             message = await database_sync_to_async(
                 lambda: Message.objects.select_related("sender").get(id=msg_id)
@@ -415,30 +414,48 @@ class GroupChatConsumer(AsyncWebsocketConsumer):
             }))
             return
 
-        # O'qilgan xabarlarni belgilash
         read = data.get("read")
         if read and self.group_id:
-            # O‘qilgan xabarlar ID'larini olish
-            read_ids = await self.mark_messages_as_read()
+            read_ids, first_read_ids = await self.mark_messages_as_read()
 
-            # Guruh a’zolariga o‘qilgan xabar haqida bildirish
             members = await database_sync_to_async(
                 lambda: list(GroupChat.objects.get(id=self.group_id).members.all())
             )()
 
+            # Guruh a’zolariga o‘qilgan xabar haqida bildirish
             for member in members:
-                if member.id != self.user.id:  # O‘ziga yubormaslik
+                if member.id != self.user.id:
                     await self.channel_layer.group_send(
-                        f"user_{member.id}",  # Har bir foydalanuvchi uchun alohida kanal
+                        f"user_{member.id}",
                         {
-                            "type": "group_messages_read",  # Handler nomi
-                            "message_ids": read_ids,  # O‘qilgan xabarlar ro‘yxati
-                            "group_id": self.group_id,  # Qaysi guruhga tegishli
-                            "reader_id": self.user.id  # Kim o‘qigan
+                            "type": "group_messages_read",
+                            "message_ids": read_ids,
+                            "group_id": self.group_id,
+                            "reader_id": self.user.id
                         }
                     )
 
-            # Har bir a'zoga yangilangan group list yuborish
+            # Birinchi o‘quvchi bo‘lsa, yuboruvchiga "is_read=True" yuboramiz
+            if first_read_ids:
+                for mid in first_read_ids:
+                    message = await database_sync_to_async(
+                        lambda: GroupMessage.objects.select_related("sender").get(id=mid)
+                    )()
+                    await self.channel_layer.group_send(
+                        f"user_{message.sender.id}",
+                        {
+                            "type": "chat_message",
+                            "message_id": message.id,
+                            "message": message.content,
+                            "sender": message.sender.id,
+                            "sender_name": message.sender.first_name,
+                            "sender_photo": None,  # kerak bo‘lsa qo‘shish mumkin
+                            "timestamp": message.created_at.isoformat(),
+                            "is_read": True
+                        }
+                    )
+
+            # Har bir a'zoga group list yangilash
             for member in members:
                 updated_groups = await self.get_user_groups(member)
                 await self.channel_layer.group_send(
@@ -573,14 +590,26 @@ class GroupChatConsumer(AsyncWebsocketConsumer):
             for message in messages
         ], members
 
-    @database_sync_to_async # me
+    @database_sync_to_async
     def mark_messages_as_read(self):
+        """Foydalanuvchi o'qigan xabarlarni belgilaydi va birinchi o'quvchini aniqlaydi."""
+
         unread_qs = GroupMessageRead.objects.filter(
-            message__group_id=self.group_id, user=self.user, is_read=False
+            message__group_id=self.group_id,
+            user=self.user,
+            is_read=False
         )
+
         read_ids = list(unread_qs.values_list("message_id", flat=True))
         unread_qs.update(is_read=True)
-        return read_ids
+
+        # "Birinchi o‘quvchi" bo‘lgan xabarlarni topish
+        first_read_ids = []
+        for mid in read_ids:
+            if not GroupMessageRead.objects.filter(message_id=mid, is_read=True).exclude(user=self.user).exists():
+                first_read_ids.append(mid)
+
+        return read_ids, first_read_ids
 
     # @database_sync_to_async
     # def mark_messages_as_read(self):
