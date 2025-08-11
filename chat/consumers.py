@@ -530,6 +530,8 @@ class GroupChatConsumer(AsyncWebsocketConsumer):
             "sender_name": event["sender_name"],
             "sender_photo": event["sender_photo"],
             "timestamp": event["timestamp"],
+            "is_read": event.get("is_read", False)  # qo‘shildi
+
         }))
 
     async def group_list_update(self, event):
