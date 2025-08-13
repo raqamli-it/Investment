@@ -423,54 +423,39 @@ class GroupChatConsumer(AsyncWebsocketConsumer):
 
         # Agar client "read": true yuborsa -> belgilash va yuborish logikasi
         if data.get("read") and self.group_id:
-            site_url = getattr(settings, "SITE_URL", "")
-            media_url = getattr(settings, "MEDIA_URL", "/media/")
-            timestamp = timezone.localtime(timezone.now())
-            read_ids = await self.mark_messages_as_read()  # list of message ids that this user just marked read
-
+            read_ids = await self.mark_messages_as_read()
             if not read_ids:
                 return
 
-            # Guruh azolarini olish
-            members = await database_sync_to_async(
-                lambda: list(GroupChat.objects.get(id=self.group_id).members.all())
-            )()
-            members_count = len(members)
-
             for msg_id in read_ids:
-                # message va senderni olish (sync DB ishlari sync_to_async orqali)
                 message = await database_sync_to_async(
-                    lambda: GroupMessage.objects.select_related("sender", "group").get(id=msg_id)
+                    lambda: GroupMessage.objects.select_related("sender").get(id=msg_id)
                 )()
 
-                # Shu xabarni nechta odam o'qiganini hisoblash
+                members_count = await database_sync_to_async(
+                    lambda: GroupChat.objects.get(id=self.group_id).members.count()
+                )()
                 read_count = await database_sync_to_async(
                     lambda: GroupMessageRead.objects.filter(message=message, is_read=True).count()
                 )()
 
-                # Agar barcha boshqa a'zolar (yuboruvchi tashqari) o'qigan bo'lsa
+                # Agar barcha boshqa a'zolar o'qib bo'lgan bo'lsa -> bazada hamma uchun True
                 if members_count <= 1 or read_count >= (members_count - 1):
-                    # Bazada barcha uchun ham is_read=True qilib qo'yamiz (garant)
                     await database_sync_to_async(
                         lambda: GroupMessageRead.objects.filter(message=message).update(is_read=True)
                     )()
 
-                    # Shuningdek guruh ichidagi clientlarga ham yangilangan holatni yuborish (agar front-end xuddi shu eventni qabul qilib update qilsa)
+                # Faqat yuboruvchiga xabarni o‘qilganini yuborish
+                if message.sender_id != self.user.id:
                     await self.channel_layer.group_send(
-
-                        f"group_{self.group_id}",
+                        f"user_{message.sender_id}",
                         {
-                            "type": "chat_message",
+                            "type": "chat_read",
                             "message_id": message.id,
-                            "message": message.content,
-                            "sender": message.sender.id,
-                            "sender_name": self.user.first_name,
-                            "sender_photo": f"{site_url}{media_url}{self.user.photo}" if self.user.photo else None,
-                            "timestamp": message.created_at.isoformat(),
-                            "is_read": True,
+                            "reader_id": self.user.id,
+                            "is_read": True  # qo‘shildi
                         }
                     )
-
             return
 
         # Xabar yuborish (old behavior)
@@ -527,6 +512,14 @@ class GroupChatConsumer(AsyncWebsocketConsumer):
                 }
             )
 
+    async def chat_read(self, event):
+        await self.send(json.dumps({
+            "type": "chat_read",
+            "message_id": event["message_id"],
+            "reader_id": event["reader_id"],
+            "is_read": event.get("is_read", True)  # default True
+        }))
+
     async def chat_message(self, event):
         # Yangi xabar yuborish (har ikkala case uchun ishlaydi)
         await self.send(json.dumps({
@@ -573,20 +566,40 @@ class GroupChatConsumer(AsyncWebsocketConsumer):
     def get_chat_history(self):
         site_url = getattr(settings, "SITE_URL", "")
         media_url = getattr(settings, "MEDIA_URL", "/media/")
-        messages = GroupMessage.objects.filter(group_id=self.group_id).order_by("created_at").select_related("sender")
+
+        messages = GroupMessage.objects.filter(
+            group_id=self.group_id
+        ).order_by("created_at").select_related("sender")
+
         members = list(GroupChat.objects.get(id=self.group_id).members.all())
-        return [
-            {
+
+        result = []
+        for message in messages:
+            # Agar sender o'zi bo'lsa -> o'qilganlar bo'yicha hisoblash
+            if message.sender_id == self.user.id:
+                # Agar barcha boshqa a'zolar o'qigan bo'lsa -> True
+                members_count = len(members)
+                read_count = GroupMessageRead.objects.filter(
+                    message=message, is_read=True
+                ).count()
+                is_read = read_count >= (members_count - 1)
+            else:
+                # O'qigan foydalanuvchiga qarab
+                is_read = GroupMessageRead.objects.filter(
+                    message=message, user=self.user, is_read=True
+                ).exists()
+
+            result.append({
                 "id": message.id,
                 "sender": message.sender.id,
                 "sender_name": message.sender.first_name,
                 "message": message.content,
                 "sender_photo": f"{site_url}{media_url}{message.sender.photo}" if message.sender.photo else None,
                 "timestamp": message.created_at.isoformat(),
-                "read_by": list(GroupMessageRead.objects.filter(message=message, is_read=True).values_list("user_id", flat=True))
-            }
-            for message in messages
-        ], members
+                "is_read": is_read
+            })
+
+        return result, members
 
     @database_sync_to_async
     def mark_messages_as_read(self):
