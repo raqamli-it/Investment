@@ -30,7 +30,7 @@ SECRET_KEY = 'django-insecure-xu87(rqb#4o7h0&l_&#8d4i4h_+so)vf+na316zb$61+#u4z+q
 DEBUG = True
 
 # SITE_URL = 'http://127.0.0.1:8000'  # Replace with your actual base URL (e.g., production URL)
-SITE_URL = 'https://investment.uzfati.uz'  # Replace with your actual base URL (e.g., production URL)
+SITE_URL = 'http://investment.digitallaboratory.uz'  # Replace with your actual base URL (e.g., production URL)
 
 ALLOWED_HOSTS = ["*"]
 
