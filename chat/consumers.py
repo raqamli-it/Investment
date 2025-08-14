@@ -480,7 +480,8 @@ class GroupChatConsumer(AsyncWebsocketConsumer):
         if self.user.is_authenticated and self.group_id and message_text:
             site_url = getattr(settings, "SITE_URL", "")
             media_url = getattr(settings, "MEDIA_URL", "/media/")
-            timestamp = timezone.localtime(timezone.now())
+            timestamp = timezone.now()
+            # timestamp = timezone.localtime(timezone.now())
 
             # Xabarni bazaga yozish
             message_obj = await database_sync_to_async(GroupMessage.objects.create)(
@@ -524,7 +525,7 @@ class GroupChatConsumer(AsyncWebsocketConsumer):
                     "sender": self.user.id,
                     "sender_name": self.user.first_name,
                     "sender_photo": f"{site_url}{media_url}{self.user.photo}" if self.user.photo else None,
-                    "timestamp": timestamp.isoformat(),
+                    "timestamp": to_user_timezone(message_obj.created_at).isoformat(),
                     "is_read": False,
                 }
             )
@@ -571,7 +572,10 @@ class GroupChatConsumer(AsyncWebsocketConsumer):
                 "image": f"{site_url}{media_url}{group.image}" if group.image else None,
                 "name": group.name,
                 "last_message": (group.messages.last().content if group.messages.exists() else ""),
-                "last_updated": group.messages.last().created_at.isoformat() if group.messages.exists() else "",
+                "last_updated": (
+                    to_user_timezone(group.messages.last().created_at).isoformat()
+                    if group.messages.exists() else ""
+                ),
                 "unread_count": GroupMessageRead.objects.filter(
                     message__group=group, user=user, is_read=False
                 ).exclude(message__sender=user).count()
@@ -612,7 +616,7 @@ class GroupChatConsumer(AsyncWebsocketConsumer):
                 "sender_name": message.sender.first_name,
                 "message": message.content,
                 "sender_photo": f"{site_url}{media_url}{message.sender.photo}" if message.sender.photo else None,
-                "timestamp": message.created_at.isoformat(),
+                "timestamp": to_user_timezone(message.created_at).isoformat(),
                 "is_read": is_read
             })
 
@@ -654,7 +658,7 @@ class GroupChatConsumer(AsyncWebsocketConsumer):
                 "image": f"{site_url}{media_url}{group.image}" if group.image else None,
                 "name": group.name,
                 "last_message": last.content if last else "",
-                "last_updated": last.created_at.isoformat() if last else "",
+                "last_updated": to_user_timezone(last.created_at).isoformat() if last else "",
                 "unread_count": GroupMessageRead.objects.filter(message__group=group, user=user, is_read=False).exclude(message__sender=user).count()
             })
         return result
