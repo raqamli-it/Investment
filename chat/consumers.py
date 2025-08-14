@@ -1,8 +1,11 @@
+from datetime import datetime
+
 from django.conf import settings
 from django.db.models import Q
 from channels.generic.websocket import AsyncWebsocketConsumer
 from channels.db import database_sync_to_async
 from .models import Chat, Message
+from .utils import to_user_timezone
 
 
 class ChatConsumer(AsyncWebsocketConsumer):
@@ -107,7 +110,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 {
                     "sender": message.sender.id,
                     "message": message.content,
-                    "timestamp": message.created_at.isoformat(),
+                    "timestamp": to_user_timezone(message.created_at).isoformat(), # timmeeeeeeee
                     "is_read": message.is_read,  # Xabar o‘qilganligini ko‘rsatish
                 }
                 for message in messages
@@ -137,7 +140,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
                     "username": sender_user.first_name,
                 },
                 "last_message": last_message.content if last_message else "",
-                "last_updated": timezone.localtime(last_message.created_at).isoformat() if last_message else "",
+                "last_updated": to_user_timezone(last_message.created_at).isoformat() if last_message else "", # timeee
                 "unread_messages": unread_messages,
             }
 
@@ -150,6 +153,19 @@ class ChatConsumer(AsyncWebsocketConsumer):
     async def receive(self, text_data):
         # Xabar ma'lumotlarini olish
         data = json.loads(text_data)
+
+        # Vaqtni olish va foydalanuvchi timezone-ga o‘tkazish
+        timestamp = data.get("timestamp")
+        if timestamp:
+            # Agar timestamp kelsa, uni UTC → user timezone formatga o'tkazamiz
+            try:
+                dt = timezone.make_aware(datetime.fromisoformat(timestamp))
+            except ValueError:
+                dt = timezone.now()
+            timestamp = to_user_timezone(dt)  # foydalanuvchi vaqti
+        else:
+            # Agar timestamp bo‘lmasa — hozirgi vaqt
+            timestamp = to_user_timezone(timezone.now())
 
         # Chat oynasiga kirganda, o'qilmagan xabarlarni o'qilgan deb belgilash
         read = data.get("read")
@@ -170,16 +186,17 @@ class ChatConsumer(AsyncWebsocketConsumer):
             return
 
         message = data.get("message")
-        timestamp = data.get("timestamp", timezone.localtime(timezone.now()))
 
         if self.user.is_authenticated and hasattr(self, "chat"):
+            # UTC vaqtni saqlash (Django best practice)
+            created_at_utc = timezone.now()
+
             # Xabarni bazaga saqlash
             message_obj = await database_sync_to_async(Message.objects.create)(
                 chat=self.chat,
                 sender=self.user,
                 content=message,
-                created_at=timestamp,
-                # is_read = False
+                created_at=created_at_utc
             )
 
             # Barcha ishtirokchilarga xabarni yuborish
@@ -189,7 +206,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
                     "type": "chat_message",
                     "message": message_obj.content,
                     "sender": self.user.id,
-                    "timestamp": timestamp.isoformat(),
+                    "timestamp": to_user_timezone(message_obj.created_at).isoformat(),
                     "is_read": message_obj.is_read,
 
                 }
@@ -229,7 +246,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
                     "type": "chat_message",
                     "message": message.content,
                     "sender": message.sender.id,
-                    "timestamp": message.created_at.isoformat(),
+                    "timestamp": to_user_timezone(message.created_at).isoformat(), # timeeee
                     "is_read": True
                 }
             )
@@ -320,7 +337,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
                     "username": other_user.first_name,
                 },
                 "last_message": last_message.content if last_message else "",
-                "last_updated": timezone.localtime(last_message.created_at).isoformat() if last_message else "",
+                "last_updated": to_user_timezone(last_message.created_at).isoformat() if last_message else "",# timeee
                 "unread_messages": unread_messages,
             })
 
@@ -337,7 +354,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 "image": f"{site_url}{group.image.url}" if group.image else None,
                 "name": group.name,
                 "last_message": last_message.content if last_message else "",
-                "last_updated": timezone.localtime(last_message.created_at).isoformat() if last_message else "",
+                "last_updated": to_user_timezone(last_message.created_at).isoformat() if last_message else "",# timeee
                 "unread_count": unread_count,
             })
 
