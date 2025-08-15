@@ -596,16 +596,13 @@ class GroupChatConsumer(AsyncWebsocketConsumer):
 
         result = []
         for message in messages:
-            # Agar sender o'zi bo'lsa -> o'qilganlar bo'yicha hisoblash
             if message.sender_id == self.user.id:
-                # Agar barcha boshqa a'zolar o'qigan bo'lsa -> True
-                members_count = len(members)
-                read_count = GroupMessageRead.objects.filter(
+                # Agar bitta bo‘lsa ham o‘qigan — yuboruvchi uchun is_read = True
+                is_read = GroupMessageRead.objects.filter(
                     message=message, is_read=True
-                ).count()
-                is_read = read_count >= (members_count - 1)
+                ).exclude(user_id=self.user.id).exists()
             else:
-                # O'qigan foydalanuvchiga qarab
+                # O‘zimiz o‘qigan bo‘lsa — is_read = True
                 is_read = GroupMessageRead.objects.filter(
                     message=message, user=self.user, is_read=True
                 ).exists()
@@ -619,6 +616,45 @@ class GroupChatConsumer(AsyncWebsocketConsumer):
                 "timestamp": to_user_timezone(message.created_at).isoformat(),
                 "is_read": is_read
             })
+
+        return result
+
+        # @database_sync_to_async
+    # def get_chat_history(self):
+    #     site_url = getattr(settings, "SITE_URL", "")
+    #     media_url = getattr(settings, "MEDIA_URL", "/media/")
+    #
+    #     messages = GroupMessage.objects.filter(
+    #         group_id=self.group_id
+    #     ).order_by("created_at").select_related("sender")
+    #
+    #     members = list(GroupChat.objects.get(id=self.group_id).members.all())
+    #
+    #     result = []
+    #     for message in messages:
+    #         # Agar sender o'zi bo'lsa -> o'qilganlar bo'yicha hisoblash
+    #         if message.sender_id == self.user.id:
+    #             # Agar barcha boshqa a'zolar o'qigan bo'lsa -> True
+    #             members_count = len(members)
+    #             read_count = GroupMessageRead.objects.filter(
+    #                 message=message, is_read=True
+    #             ).count()
+    #             is_read = read_count >= (members_count - 1)
+    #         else:
+    #             # O'qigan foydalanuvchiga qarab
+    #             is_read = GroupMessageRead.objects.filter(
+    #                 message=message, user=self.user, is_read=True
+    #             ).exists()
+    #
+    #         result.append({
+    #             "id": message.id,
+    #             "sender": message.sender.id,
+    #             "sender_name": message.sender.first_name,
+    #             "message": message.content,
+    #             "sender_photo": f"{site_url}{media_url}{message.sender.photo}" if message.sender.photo else None,
+    #             "timestamp": to_user_timezone(message.created_at).isoformat(),
+    #             "is_read": is_read
+    #         })
 
         return result, members
 
