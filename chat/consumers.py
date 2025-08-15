@@ -1,5 +1,3 @@
-from datetime import datetime
-
 from django.conf import settings
 from django.db.models import Q
 from channels.generic.websocket import AsyncWebsocketConsumer
@@ -153,19 +151,6 @@ class ChatConsumer(AsyncWebsocketConsumer):
     async def receive(self, text_data):
         # Xabar ma'lumotlarini olish
         data = json.loads(text_data)
-
-        # Vaqtni olish va foydalanuvchi timezone-ga o‘tkazish
-        timestamp = data.get("timestamp")
-        if timestamp:
-            # Agar timestamp kelsa, uni UTC → user timezone formatga o'tkazamiz
-            try:
-                dt = timezone.make_aware(datetime.fromisoformat(timestamp))
-            except ValueError:
-                dt = timezone.now()
-            timestamp = to_user_timezone(dt)  # foydalanuvchi vaqti
-        else:
-            # Agar timestamp bo‘lmasa — hozirgi vaqt
-            timestamp = to_user_timezone(timezone.now())
 
         # Chat oynasiga kirganda, o'qilmagan xabarlarni o'qilgan deb belgilash
         read = data.get("read")
