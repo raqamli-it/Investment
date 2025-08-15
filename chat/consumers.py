@@ -596,16 +596,10 @@ class GroupChatConsumer(AsyncWebsocketConsumer):
 
         result = []
         for message in messages:
-            if message.sender_id == self.user.id:
-                # Agar bitta bo‘lsa ham o‘qigan — yuboruvchi uchun is_read = True
-                is_read = GroupMessageRead.objects.filter(
-                    message=message, is_read=True
-                ).exclude(user_id=self.user.id).exists()
-            else:
-                # O‘zimiz o‘qigan bo‘lsa — is_read = True
-                is_read = GroupMessageRead.objects.filter(
-                    message=message, user=self.user, is_read=True
-                ).exists()
+            # Agar guruhdagi boshqa istalgan user o‘qigan bo‘lsa — hamma uchun True
+            is_read = GroupMessageRead.objects.filter(
+                message=message, is_read=True
+            ).exclude(user_id=message.sender_id).exists()
 
             result.append({
                 "id": message.id,
