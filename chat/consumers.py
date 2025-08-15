@@ -617,7 +617,7 @@ class GroupChatConsumer(AsyncWebsocketConsumer):
                 "is_read": is_read
             })
 
-        return result
+        return result, members
 
         # @database_sync_to_async
     # def get_chat_history(self):
