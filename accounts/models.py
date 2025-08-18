@@ -1,8 +1,7 @@
+from django.core.validators import RegexValidator
 from django.db import models
 from django.contrib.auth.models import AbstractUser
 from django.contrib.auth.base_user import BaseUserManager
-from phonenumber_field.modelfields import PhoneNumberField
-
 
 class UserManager(BaseUserManager):
     use_in_migrations = True
@@ -33,8 +32,16 @@ class UserManager(BaseUserManager):
         return self._create_user(email, password, **extra_fields)
 
 
+uzb_phone_validator = RegexValidator(
+    regex=r'^\+998(33|50|55|77|88|90|91|93|94|95|97|98|99)\d{7}$',
+    message="Telefon raqamni +99890XXXXXXX formatida kiriting."
+)
+
+
 class User(AbstractUser):
-    phone_num = PhoneNumberField('Phone number', unique=True, blank=True, null=True)
+    phone_num = models.CharField('Phone number', max_length=13, unique=True, blank=True, null=True,
+        validators=[uzb_phone_validator]
+    )
     username = None
     email = models.EmailField(('email address'), unique=True)
     photo = models.ImageField(upload_to='files/users_photo/', blank=True, null=True)
@@ -50,7 +57,6 @@ class User(AbstractUser):
 
     def __str__(self):
         return self.email
-
 
 class EmailActivation(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='email_activation')
