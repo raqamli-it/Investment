@@ -657,7 +657,7 @@ class SmartNoteListView(generics.ListAPIView):
             else:
                 datas = None
 
-        serializer_info = SmartNoteListRetrieveSerializer(datas, many=True, context={"reauest": request})
+        serializer_info = SmartNoteListRetrieveSerializer(datas, many=True, context={"request": request})
         return Response(serializer_info.data, status=status.HTTP_200_OK)
 
 
