@@ -49,6 +49,7 @@ class User(AbstractUser):
     about = models.TextField(max_length=355, blank=True, null=True)
     is_physic = models.BooleanField(default=True)
     is_online = models.BooleanField(default=False)  # Online holat
+    last_seen = models.DateTimeField(null=True, blank=True)  # oxirgi marta ko‘ringan vaqt
 
     USERNAME_FIELD = 'email'
     REQUIRED_FIELDS = []

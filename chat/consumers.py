@@ -4,6 +4,9 @@ from channels.generic.websocket import AsyncWebsocketConsumer
 from channels.db import database_sync_to_async
 from .models import Chat, Message
 from .utils import to_user_timezone
+from django.contrib.auth import get_user_model
+
+User = get_user_model()
 
 
 class ChatConsumer(AsyncWebsocketConsumer):
@@ -15,6 +18,9 @@ class ChatConsumer(AsyncWebsocketConsumer):
         self.receiver_id = query_params.get("receiver_id", [None])[0]
 
         if self.user.is_authenticated:
+
+            await self.set_user_online(self.user) # user ni online deb belgilash uchun
+
             if self.receiver_id:
                 # receiver_id orqali chatni olish yoki yaratish
                 self.chat = await database_sync_to_async(Chat.get_or_create_chat)(
@@ -30,6 +36,16 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 )
 
                 await self.accept()
+
+                # 🔹 Receiver userni olib, Androidga yuborish
+                receiver = await database_sync_to_async(User.objects.get)(id=self.receiver_id)
+
+                await self.send(text_data=json.dumps({
+                    "type": "user_status",
+                    "user_id": receiver.id,
+                    "is_online": receiver.is_online,
+                    "last_seen": receiver.last_seen.isoformat() if receiver.last_seen else None
+                }))
 
                 # Chat tarixini yuborish
                 messages = await self.get_chat_history()
@@ -58,6 +74,21 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 }))
         else:
             await self.close()
+
+    async def disconnect(self, close_code):
+        if self.user.is_authenticated:
+            await self.set_user_offline(self.user)  #  userni oxirgi martta qachon online bolganini olish
+
+            # boshqa userlarga xabar berish
+            await self.channel_layer.group_send(
+                f"user_{self.user.id}",
+                {
+                    "type": "user_status_update",
+                    "user_id": self.user.id,
+                    "is_online": False,
+                    "last_seen": timezone.now().isoformat()
+                }
+            )
 
     async def mark_messages_as_read_and_update(self):
         has_unread_messages, read_message_ids = await self.mark_messages_as_read()
@@ -103,6 +134,10 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 "id": other_user.id,
                 "photo": f"{site_url}{other_user.photo.url}" if other_user.photo else None,
                 "username": other_user.first_name,
+                "is_online": other_user.is_online,  #  online holati
+                "last_seen": other_user.last_seen.isoformat() if other_user.last_seen else None,
+                #  oxirgi kirgan vaqti
+
             },
             "messages": [
                 {
