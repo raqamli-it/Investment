@@ -5,9 +5,9 @@ from channels.db import database_sync_to_async
 from .models import Chat, Message
 from .utils import to_user_timezone
 from django.contrib.auth import get_user_model
+from .utils import set_user_online, set_user_offline
 
 User = get_user_model()
-
 
 class ChatConsumer(AsyncWebsocketConsumer):
     async def connect(self):
@@ -19,7 +19,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
         if self.user.is_authenticated:
 
-            await self.set_user_online(self.user) # user ni online deb belgilash uchun
+            await set_user_online(self.user) # user ni online deb belgilash uchun
 
             if self.receiver_id:
                 # receiver_id orqali chatni olish yoki yaratish
@@ -77,7 +77,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
     async def disconnect(self, close_code):
         if self.user.is_authenticated:
-            await self.set_user_offline(self.user)  #  userni oxirgi martta qachon online bolganini olish
+            await set_user_offline(self.user)  #  userni oxirgi martta qachon online bolganini olish
 
             # boshqa userlarga xabar berish
             await self.channel_layer.group_send(

@@ -1,6 +1,7 @@
 import datetime
 
 import pytz
+from channels.db import database_sync_to_async
 from django.utils import timezone
 
 
@@ -18,10 +19,12 @@ def to_user_timezone(dt, tz="Asia/Tashkent"):
 
 
 
+@database_sync_to_async
 def set_user_online(user):
     user.is_online = True
     user.save(update_fields=["is_online"])
 
+@database_sync_to_async
 def set_user_offline(user):
     user.is_online = False
     user.last_seen = timezone.now()
