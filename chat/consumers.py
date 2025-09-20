@@ -46,7 +46,8 @@ class ChatConsumer(AsyncWebsocketConsumer):
                         "type": "user_status_update",
                         "user_id": int(self.receiver_id),
                         "is_online": receiver.is_online,
-                        "last_seen": to_user_timezone(receiver.last_seen, "Asia/Tashkent").isoformat()
+                        "last_seen": to_user_timezone(receiver.last_seen, "Asia/Tashkent").strftime(
+                            "%Y-%m-%d %H:%M:%S") if receiver.last_seen else None
                         if receiver.last_seen else None
                     }
                 )
@@ -74,8 +75,8 @@ class ChatConsumer(AsyncWebsocketConsumer):
                     "type": "user_status",
                     "user_id": receiver.id,
                     "is_online": receiver.is_online,
-                    "last_seen": to_user_timezone(receiver.last_seen,
-                                                  "Asia/Tashkent").isoformat() if receiver.last_seen else None
+                    "last_seen": to_user_timezone(receiver.last_seen, "Asia/Tashkent").strftime(
+                        "%Y-%m-%d %H:%M:%S") if receiver.last_seen else None
                 }))
 
                 # Chat tarixini yuborish
@@ -117,7 +118,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
                     "type": "user_status_update",
                     "user_id": self.user.id,
                     "is_online": False,
-                    "last_seen": to_user_timezone(timezone.now(), "Asia/Tashkent").isoformat()
+                    "last_seen": to_user_timezone(timezone.now(), "Asia/Tashkent").strftime("%Y-%m-%d %H:%M:%S")
                 }
             )
 
@@ -713,7 +714,7 @@ class GroupChatConsumer(AsyncWebsocketConsumer):
     #             "is_read": is_read
     #         })
 
-        return result, members
+        # return result, members
 
     @database_sync_to_async
     def mark_messages_as_read(self):
