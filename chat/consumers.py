@@ -16,12 +16,19 @@ class ChatConsumer(AsyncWebsocketConsumer):
         # So'rov parametrlarini olish
         query_params = parse_qs(self.scope["query_string"].decode())
         self.receiver_id = query_params.get("receiver_id", [None])[0]
+        receiver = await database_sync_to_async(User.objects.get)(id=self.receiver_id)
 
         if self.user.is_authenticated:
+
+            await self.channel_layer.group_add(
+                f"user_{self.user.id}",
+                self.channel_name
+            )
 
             await set_user_online(self.user) # user ni online deb belgilash uchun
             # 🔹 Barcha userlarga shu user onlayn bo‘ldi deb xabar berish
             if self.receiver_id:
+                # o‘zini receiverga yuborish
                 await self.channel_layer.group_send(
                     f"user_{self.receiver_id}",
                     {
@@ -29,6 +36,18 @@ class ChatConsumer(AsyncWebsocketConsumer):
                         "user_id": self.user.id,
                         "is_online": True,
                         "last_seen": None
+                    }
+                )
+
+                # 🔹 O‘ziga ham receiverning statusini yuborish
+                await self.channel_layer.group_send(
+                    f"user_{self.user.id}",
+                    {
+                        "type": "user_status_update",
+                        "user_id": int(self.receiver_id),
+                        "is_online": receiver.is_online,
+                        "last_seen": to_user_timezone(receiver.last_seen, "Asia/Tashkent").isoformat()
+                        if receiver.last_seen else None
                     }
                 )
 
@@ -93,7 +112,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
             # boshqa userlarga xabar berish
             await self.channel_layer.group_send(
-                f"user_{self.user.id}",
+                f"user_{self.receiver_id}",
                 {
                     "type": "user_status_update",
                     "user_id": self.user.id,
