@@ -44,7 +44,8 @@ class ChatConsumer(AsyncWebsocketConsumer):
                     "type": "user_status",
                     "user_id": receiver.id,
                     "is_online": receiver.is_online,
-                    "last_seen": receiver.last_seen.isoformat() if receiver.last_seen else None
+                    "last_seen": to_user_timezone(receiver.last_seen,
+                                                  "Asia/Tashkent").isoformat() if receiver.last_seen else None
                 }))
 
                 # Chat tarixini yuborish
@@ -86,7 +87,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
                     "type": "user_status_update",
                     "user_id": self.user.id,
                     "is_online": False,
-                    "last_seen": to_user_timezone(timezone.now(), "Asia/Tashkent").strftime("%Y-%m-%d %H:%M:%S")
+                    "last_seen": to_user_timezone(timezone.now(), "Asia/Tashkent").isoformat()
                 }
             )
 
@@ -135,7 +136,8 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 "photo": f"{site_url}{other_user.photo.url}" if other_user.photo else None,
                 "username": other_user.first_name,
                 "is_online": other_user.is_online,  #  online holati
-                "last_seen": other_user.last_seen.isoformat() if other_user.last_seen else None,
+                "last_seen": to_user_timezone(other_user.last_seen,
+                                              "Asia/Tashkent").isoformat() if other_user.last_seen else None,
                 #  oxirgi kirgan vaqti
 
             },
