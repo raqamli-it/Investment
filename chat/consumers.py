@@ -68,16 +68,16 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
                 await self.accept()
 
-                # 🔹 Receiver userni olib, Androidga yuborish
-                receiver = await database_sync_to_async(User.objects.get)(id=self.receiver_id)
-
-                await self.send(text_data=json.dumps({
-                    "type": "user_status",
-                    "user_id": receiver.id,
-                    "is_online": receiver.is_online,
-                    "last_seen": to_user_timezone(receiver.last_seen, "Asia/Tashkent").strftime(
-                        "%Y-%m-%d %H:%M:%S") if receiver.last_seen else None
-                }))
+                # # 🔹 Receiver userni olib, Androidga yuborish
+                # receiver = await database_sync_to_async(User.objects.get)(id=self.receiver_id)
+                #
+                # await self.send(text_data=json.dumps({
+                #     "type": "user_status",
+                #     "user_id": receiver.id,
+                #     "is_online": receiver.is_online,
+                #     "last_seen": to_user_timezone(receiver.last_seen, "Asia/Tashkent").strftime(
+                #         "%Y-%m-%d %H:%M:%S") if receiver.last_seen else None
+                # }))
 
                 # Chat tarixini yuborish
                 messages = await self.get_chat_history()
