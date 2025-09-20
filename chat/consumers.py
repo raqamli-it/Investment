@@ -177,11 +177,6 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 "id": other_user.id,
                 "photo": f"{site_url}{other_user.photo.url}" if other_user.photo else None,
                 "username": other_user.first_name,
-                "is_online": other_user.is_online,  #  online holati
-                "last_seen": to_user_timezone(other_user.last_seen,
-                                              "Asia/Tashkent").isoformat() if other_user.last_seen else None,
-                #  oxirgi kirgan vaqti
-
             },
             "messages": [
                 {
