@@ -102,6 +102,17 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 }
             )
 
+    async def user_status_update(self, event):
+        """
+        Boshqa userning statusi (online/offline) haqida xabar olish
+        """
+        await self.send(text_data=json.dumps({
+            "type": "user_status",
+            "user_id": event["user_id"],
+            "is_online": event["is_online"],
+            "last_seen": event["last_seen"],
+        }))
+
     async def mark_messages_as_read_and_update(self):
         has_unread_messages, read_message_ids = await self.mark_messages_as_read()
         if has_unread_messages:
