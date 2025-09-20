@@ -86,7 +86,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
                     "type": "user_status_update",
                     "user_id": self.user.id,
                     "is_online": False,
-                    "last_seen": timezone.now().isoformat()
+                    "last_seen": to_user_timezone(timezone.now(), "Asia/Tashkent")
                 }
             )
 
