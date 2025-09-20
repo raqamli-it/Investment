@@ -20,6 +20,16 @@ class ChatConsumer(AsyncWebsocketConsumer):
         if self.user.is_authenticated:
 
             await set_user_online(self.user) # user ni online deb belgilash uchun
+            # 🔹 Barcha userlarga shu user onlayn bo‘ldi deb xabar berish
+            await self.channel_layer.group_send(
+                f"user_{self.user.id}",
+                {
+                    "type": "user_status_update",
+                    "user_id": self.user.id,
+                    "is_online": True,
+                    "last_seen": None  # Onlayn bo‘lsa last_seen kerak emas
+                }
+            )
 
             if self.receiver_id:
                 # receiver_id orqali chatni olish yoki yaratish
