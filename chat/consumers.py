@@ -16,7 +16,9 @@ class ChatConsumer(AsyncWebsocketConsumer):
         # So'rov parametrlarini olish
         query_params = parse_qs(self.scope["query_string"].decode())
         self.receiver_id = query_params.get("receiver_id", [None])[0]
-        receiver = await database_sync_to_async(User.objects.get)(id=self.receiver_id)
+        receiver = None
+        if self.receiver_id:
+            receiver = await database_sync_to_async(User.objects.get)(id=self.receiver_id)
 
         if self.user.is_authenticated:
 
