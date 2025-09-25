@@ -6,6 +6,7 @@ from .models import Chat, Message
 from .utils import to_user_timezone
 from django.contrib.auth import get_user_model
 from .utils import set_user_online, set_user_offline
+from collections import defaultdict
 
 User = get_user_model()
 
@@ -69,17 +70,6 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 )
 
                 await self.accept()
-
-                # # 🔹 Receiver userni olib, Androidga yuborish
-                # receiver = await database_sync_to_async(User.objects.get)(id=self.receiver_id)
-                #
-                # await self.send(text_data=json.dumps({
-                #     "type": "user_status",
-                #     "user_id": receiver.id,
-                #     "is_online": receiver.is_online,
-                #     "last_seen": to_user_timezone(receiver.last_seen, "Asia/Tashkent").strftime(
-                #         "%Y-%m-%d %H:%M:%S") if receiver.last_seen else None
-                # }))
 
                 # Chat tarixini yuborish
                 messages = await self.get_chat_history()
@@ -194,32 +184,52 @@ class ChatConsumer(AsyncWebsocketConsumer):
     @database_sync_to_async
     def get_user_chats(self, user_id):
         # User_id asosida chatlarni olish
-        chats = Chat.objects.filter(user1_id=user_id) | Chat.objects.filter(user2_id=user_id)
-        chats = chats.distinct()
-        site_url = getattr(settings, "SITE_URL", "")  # BASE_URL ni olish (agar mavjud bo‘lsa)
-        # media_url = getattr(settings, "MEDIA_URL", "/media/")  # MEDIA URL-ni olish
+        chats = Chat.objects.filter(Q(user1_id=user_id) | Q(user2_id=user_id)).distinct()
+
+        site_url = getattr(settings, "SITE_URL", "")  # BASE_URL
 
         chat_list = []
         for chat in chats:
             last_message = chat.messages.last()
             unread_messages = chat.messages.filter(is_read=False).exclude(sender_id=user_id).count()
 
-            # Jo'natuvchini to'g'ri aniqlash
-            sender_user = chat.user1 if chat.user2.id == user_id else chat.user2
+            # Qarama-qarshi userni aniqlash
+            other_user = chat.user1 if chat.user2.id == user_id else chat.user2
+
+            grouped_messages = defaultdict(list)
+            for message in chat.messages.all().order_by("created_at"):
+                local_time = to_user_timezone(message.created_at, "Asia/Tashkent")
+                date_str = local_time.strftime("%Y-%m-%d")  # Sana
+                time_str = local_time.strftime("%H:%M:%S")  # Faqat vaqt
+
+                grouped_messages[date_str].append({
+                    "sender": message.sender.id,
+                    "message": message.content,
+                    "timestamp": time_str,
+                    "is_read": message.is_read,
+                })
+
+            messages_by_date = [
+                {"date": date, "messages": msgs}
+                for date, msgs in sorted(grouped_messages.items())
+            ]
 
             chat_data = {
-                "other_user": {  # Bu yerda "other_user" o'rniga "sender" desak ham bo'ladi
-                    "id": sender_user.id,
-                    "photo": f"{site_url}{sender_user.photo.url}" if sender_user.photo else None,
-                    "username": sender_user.first_name,
+                "other_user": {
+                    "id": other_user.id,
+                    "photo": f"{site_url}{other_user.photo.url}" if other_user.photo else None,
+                    "username": other_user.first_name,
                 },
                 "last_message": last_message.content if last_message else "",
-                "last_updated": to_user_timezone(last_message.created_at).isoformat() if last_message else "", # timeee
+                "last_updated": to_user_timezone(last_message.created_at,
+                                                 "Asia/Tashkent").isoformat() if last_message else "",
                 "unread_messages": unread_messages,
+                "messages_by_date": messages_by_date,
             }
 
             chat_list.append(chat_data)
 
+        # Chatlarni oxirgi xabarga qarab saralash
         chat_list.sort(key=lambda x: x["last_updated"], reverse=True)
 
         return chat_list
