@@ -457,13 +457,19 @@ class GroupChatConsumer(AsyncWebsocketConsumer):
         await self.channel_layer.group_add(f"user_{self.user.id}", self.channel_name)
 
         query_params = parse_qs(self.scope["query_string"].decode())
-        self.group_id = query_params.get("group_id", [None])[0]
+        group_id_str = query_params.get("group_id", [None])[0]
 
-        # Guruhlar ro'yxatini olish (agar kerak bo'lsa clientga jo'natish uchun)
+        try:
+            self.group_id = int(group_id_str) if group_id_str else None
+        except ValueError:
+            self.group_id = None
+
+        # Guruhlar ro'yxatini olish
         self.groups = await self.get_user_groups(self.user)
 
         if self.group_id:
             await self.add_user_to_group()
+
         await self.accept()
 
         if not self.group_id:
@@ -472,24 +478,11 @@ class GroupChatConsumer(AsyncWebsocketConsumer):
             await self.send(json.dumps({"type": "group_list", "groups": self.groups}))
             return
 
-        if self.group_id:
-            # agar group_id bor bo'lsa: guruh kanaliga qo'shish va tarix yuborish
-            self.room_group_name = f"group_{self.group_id}"
-            await self.channel_layer.group_add(self.room_group_name, self.channel_name)
-            messages, members = await self.get_chat_history()
-            await self.send(json.dumps({"type": "chat_history", "messages": messages}))
-
-            # global group listni yangilash (agar kerak bo'lsa)
-            for member in members:
-                updated_groups = await self.get_user_groups(member)
-                await self.channel_layer.group_send(
-                    "global_group_updates",
-                    {
-                        "type": "group_list_update",
-                        "groups": updated_groups,
-                        "user_id": member.id
-                    }
-                )
+        # agar group_id bor bo'lsa: guruh kanaliga qo'shish va tarix yuborish
+        self.room_group_name = f"group_{self.group_id}"
+        await self.channel_layer.group_add(self.room_group_name, self.channel_name)
+        history = await self.get_chat_history()
+        await self.send(json.dumps({"type": "chat_history", **history}))
 
     @database_sync_to_async
     def add_user_to_group(self):
