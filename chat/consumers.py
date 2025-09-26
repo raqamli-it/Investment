@@ -665,24 +665,38 @@ class GroupChatConsumer(AsyncWebsocketConsumer):
 
         members = list(GroupChat.objects.get(id=self.group_id).members.all())
 
-        result = []
+        # 📌 Sana bo‘yicha guruhlash
+        grouped_messages = defaultdict(list)
         for message in messages:
+            local_time = to_user_timezone(message.created_at, "Asia/Tashkent")
+            date_str = local_time.strftime("%Y-%m-%d")  # Sana: 2025-09-25
+            time_str = local_time.strftime("%H:%M:%S")  # Vaqt: 14:20:11
+
             # Agar guruhdagi boshqa istalgan user o‘qigan bo‘lsa — hamma uchun True
             is_read = GroupMessageRead.objects.filter(
                 message=message, is_read=True
             ).exclude(user_id=message.sender_id).exists()
 
-            result.append({
+            grouped_messages[date_str].append({
                 "id": message.id,
                 "sender": message.sender.id,
                 "sender_name": message.sender.first_name,
                 "message": message.content,
                 "sender_photo": f"{site_url}{media_url}{message.sender.photo}" if message.sender.photo else None,
-                "timestamp": to_user_timezone(message.created_at).isoformat(),
+                "timestamp": time_str,
                 "is_read": is_read
             })
 
-        return result, members
+        # Sana bo‘yicha JSON tuzish
+        messages_by_date = [
+            {"date": date, "messages": msgs}
+            for date, msgs in sorted(grouped_messages.items())
+        ]
+
+        return {
+            "messages_by_date": messages_by_date,
+            "members": members
+        }
 
         # @database_sync_to_async
     # def get_chat_history(self):
