@@ -663,14 +663,15 @@ class GroupChatConsumer(AsyncWebsocketConsumer):
             group_id=self.group_id
         ).order_by("created_at").select_related("sender")
 
-        members = list(GroupChat.objects.get(id=self.group_id).members.all())
+        group = GroupChat.objects.get(id=self.group_id)
+        members = group.members.all()
 
         # 📌 Sana bo‘yicha guruhlash
         grouped_messages = defaultdict(list)
         for message in messages:
             local_time = to_user_timezone(message.created_at, "Asia/Tashkent")
-            date_str = local_time.strftime("%Y-%m-%d")  # Sana: 2025-09-25
-            time_str = local_time.strftime("%H:%M:%S")  # Vaqt: 14:20:11
+            date_str = local_time.strftime("%Y-%m-%d")
+            time_str = local_time.strftime("%H:%M:%S")
 
             # Agar guruhdagi boshqa istalgan user o‘qigan bo‘lsa — hamma uchun True
             is_read = GroupMessageRead.objects.filter(
@@ -693,9 +694,21 @@ class GroupChatConsumer(AsyncWebsocketConsumer):
             for date, msgs in sorted(grouped_messages.items())
         ]
 
+        # ⚠️ Object emas, dict qaytaramiz
+        members_data = [
+            {
+                "id": member.id,
+                "username": member.username,
+                "photo": f"{site_url}{media_url}{member.photo}" if member.photo else None,
+                "first_name": member.first_name,
+                "last_name": member.last_name,
+            }
+            for member in members
+        ]
+
         return {
             "messages_by_date": messages_by_date,
-            "members": members
+            "members": members_data
         }
 
         # @database_sync_to_async
