@@ -663,20 +663,21 @@ class GroupChatConsumer(AsyncWebsocketConsumer):
             group_id=self.group_id
         ).order_by("created_at").select_related("sender")
 
-        group = GroupChat.objects.get(id=self.group_id)
-        members = group.members.all()
+        group = GroupChat.objects.filter(id=self.group_id).prefetch_related("members").first()
+        if not group:
+            return {"messages_by_date": [], "members": []}
 
-        # 📌 Sana bo‘yicha guruhlash
+        # O‘qilganlar jadvali oldindan olish
+        reads = GroupMessageRead.objects.filter(
+            message__group_id=self.group_id, is_read=True
+        ).exclude(user_id__in=messages.values("sender_id"))
+        reads_map = {r.message_id: True for r in reads}
+
         grouped_messages = defaultdict(list)
         for message in messages:
             local_time = to_user_timezone(message.created_at, "Asia/Tashkent")
             date_str = local_time.strftime("%Y-%m-%d")
             time_str = local_time.strftime("%H:%M:%S")
-
-            # Agar guruhdagi boshqa istalgan user o‘qigan bo‘lsa — hamma uchun True
-            is_read = GroupMessageRead.objects.filter(
-                message=message, is_read=True
-            ).exclude(user_id=message.sender_id).exists()
 
             grouped_messages[date_str].append({
                 "id": message.id,
@@ -685,16 +686,14 @@ class GroupChatConsumer(AsyncWebsocketConsumer):
                 "message": message.content,
                 "sender_photo": f"{site_url}{media_url}{message.sender.photo}" if message.sender.photo else None,
                 "timestamp": time_str,
-                "is_read": is_read
+                "is_read": reads_map.get(message.id, False)
             })
 
-        # Sana bo‘yicha JSON tuzish
         messages_by_date = [
             {"date": date, "messages": msgs}
             for date, msgs in sorted(grouped_messages.items())
         ]
 
-        # ⚠️ Object emas, dict qaytaramiz
         members_data = [
             {
                 "id": member.id,
@@ -703,7 +702,7 @@ class GroupChatConsumer(AsyncWebsocketConsumer):
                 "first_name": member.first_name,
                 "last_name": member.last_name,
             }
-            for member in members
+            for member in group.members.all()
         ]
 
         return {
