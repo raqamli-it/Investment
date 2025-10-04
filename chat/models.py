@@ -46,6 +46,10 @@ class Message(models.Model):
     content = models.TextField()
     created_at = models.DateTimeField()
     image = models.ImageField(upload_to='message_images/', blank=True, null=True)  # Rasmni saqlash
+    parent = models.ForeignKey("self", null=True, blank=True, on_delete=models.SET_NULL)  # reply
+    is_deleted = models.BooleanField(default=False)
+    edited_at = models.DateTimeField(null=True, blank=True)
+
     is_read = models.BooleanField(default=False)  # O'qilgan status
 
     def __str__(self):

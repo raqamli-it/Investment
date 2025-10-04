@@ -237,6 +237,23 @@ class ChatConsumer(AsyncWebsocketConsumer):
     async def receive(self, text_data):
         # Xabar ma'lumotlarini olish
         data = json.loads(text_data)
+        action = data.get("action")
+
+        if not action:
+            return
+
+        # 🔹 Xabar yuborish (yangi / reply)
+        if action == "send_message":
+            await self.handle_send_message(data)
+
+        # 🔹 Edit qilish
+        elif action == "edit_message":
+            await self.handle_edit_message(data)
+
+        # Delete qilish (list ni ham delete qilish mumkin va 1 ta message ni ham)
+        elif action == "handle_delete_messages":
+            await self.handle_delete_messages(data)
+
 
         # Chat oynasiga kirganda, o'qilmagan xabarlarni o'qilgan deb belgilash
         read = data.get("read")
@@ -288,6 +305,91 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
             # Yangi xabar yuborilganda qabul qiluvchiga o'qilmagan deb belgilash
             await self.update_unread_status_for_receiver(message_obj)
+
+    async def handle_send_message(self, data):  # Xabar yuborish (reply bilan)
+        message_text = data.get("message")
+        parent_id = data.get("parent_id")  # reply qilingan message ID
+
+        created_at_utc = timezone.now()
+
+        msg = await database_sync_to_async(Message.objects.create)(
+            chat=self.chat,
+            sender=self.user,
+            content=message_text,
+            parent_id=parent_id if parent_id else None,
+            created_at=created_at_utc
+        )
+
+        response = {
+            "action": "send_message",
+            "id": msg.id,
+            "message": msg.content,
+            "sender": self.user.id,
+            "timestamp": to_user_timezone(msg.created_at).isoformat(),
+            "is_read": msg.is_read,
+            "parent_id": parent_id,
+        }
+
+        await self.channel_layer.group_send(self.room_group_name, {
+            "type": "chat_message",
+            "message": response
+        })
+
+    async def handle_edit_message(self, data):   # Message  Edit qilish
+        msg_id = data.get("id")
+        new_text = data.get("text")
+
+        msg = await database_sync_to_async(Message.objects.get)(id=msg_id)
+
+        if msg.sender == self.user and not msg.is_deleted:
+            msg.content = new_text
+            msg.edited_at = timezone.now()
+            await database_sync_to_async(msg.save)()
+
+            response = {
+                "action": "edit_message",
+                "id": msg.id,
+                "new_text": msg.content,
+                "edited_at": str(msg.edited_at)
+            }
+
+            await self.channel_layer.group_send(self.room_group_name, {
+                "type": "chat_message",
+                "message": response
+            })
+
+    async def handle_delete_messages(self, data):
+        ids = data.get("ids")
+        if not ids:
+            # Agar faqat bitta id kelsa
+            msg_id = data.get("id")
+            if msg_id:
+                ids = [msg_id]
+
+        if not ids:
+            return  # hech narsa kelmagan bo‘lsa chiqib ketamiz
+
+        # Faqat o‘zining yozgan va o‘chirilmagan xabarlarini olish
+        msgs = await database_sync_to_async(list)(
+            Message.objects.filter(id__in=ids, sender=self.user, is_deleted=False)
+        )
+
+        deleted_ids = []
+        for msg in msgs:
+            msg.is_deleted = True
+            msg.content = "This message was deleted"
+            await database_sync_to_async(msg.save)()
+            deleted_ids.append(msg.id)
+
+        response = {
+            "action": "delete_messages",
+            "ids": deleted_ids
+        }
+
+        await self.channel_layer.group_send(self.room_group_name, {
+            "type": "chat_message",
+            "message": response
+        })
 
     async def notify_sender_about_read(self, read_message_ids):
         """
