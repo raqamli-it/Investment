@@ -1,3 +1,5 @@
+import logging
+
 from django.conf import settings
 from django.db.models import Q
 from channels.generic.websocket import AsyncWebsocketConsumer
@@ -293,11 +295,13 @@ class ChatConsumer(AsyncWebsocketConsumer):
             created_at=created_at_utc
         )
 
+        logger = logging.getLogger(__name__)
+
         await self.channel_layer.group_send(
             self.room_group_name,
             {
                 "type": "chat_message",
-                "message": {  # ✅ dict bo‘lib yuboriladi
+                "message": {
                     "id": msg.id,
                     "message": msg.content,
                     "sender": self.user.id,
@@ -307,6 +311,8 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 }
             }
         )
+
+        logger.info(f"GROUP_SEND PAYLOAD: {msg.id} -> {msg.content}")
 
         # 🔹 Chat list va unread update qilish
         await self.update_user_chats()
@@ -435,7 +441,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
     async def chat_message(self, event):
         # WebSocket orqali xabarni yuborish
-        print(">>> EVENT:", event, type(event["message"]))  # 👈 debug
+        # print(">>> EVENT:", event, type(event["message"]))  #  debug
 
         data = event["message"]
         await self.send(text_data=json.dumps({
