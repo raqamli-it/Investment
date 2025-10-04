@@ -207,6 +207,8 @@ class ChatConsumer(AsyncWebsocketConsumer):
                     "message": message.content,
                     "timestamp": time_str,
                     "is_read": message.is_read,
+                    "parent_id": message.parent.id if message.parent else None,
+
                 })
 
             messages_by_date = [
@@ -458,7 +460,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
     def search_chats_and_groups(self, user_id, search_query=""):
         """Foydalanuvchining shaxsiy chatlari va guruhlarini qidirish"""
         if not search_query.strip():
-            return []  # ⚠️ Agar qidiruv so‘rovi bo‘lmasa, bo‘sh ro‘yxat qaytariladi.
+            return []  #  Agar qidiruv so‘rovi bo‘lmasa, bo‘sh ro‘yxat qaytariladi.
 
         # Shaxsiy chatlarni olish
         chats = Chat.objects.filter(
