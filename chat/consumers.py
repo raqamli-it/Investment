@@ -297,7 +297,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
             self.room_group_name,
             {
                 "type": "chat_message",
-                "message": {  #  dict bo‘lib yuboriladi
+                "message": {  # ✅ dict bo‘lib yuboriladi
                     "id": msg.id,
                     "message": msg.content,
                     "sender": self.user.id,
@@ -435,6 +435,8 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
     async def chat_message(self, event):
         # WebSocket orqali xabarni yuborish
+        print(">>> EVENT:", event, type(event["message"]))  # 👈 debug
+
         data = event["message"]
         await self.send(text_data=json.dumps({
             "type": "chat_message",
