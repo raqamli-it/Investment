@@ -293,21 +293,18 @@ class ChatConsumer(AsyncWebsocketConsumer):
             created_at=created_at_utc
         )
 
-        response = {
-            "action": "send_message",
-            "id": msg.id,
-            "message": msg.content,
-            "sender": self.user.id,
-            "timestamp": to_user_timezone(msg.created_at).isoformat(),
-            "is_read": msg.is_read,
-            "parent_id": parent_id,
-        }
-
         await self.channel_layer.group_send(
             self.room_group_name,
             {
                 "type": "chat_message",
-                "message": response
+                "message": {  #  dict bo‘lib yuboriladi
+                    "id": msg.id,
+                    "message": msg.content,
+                    "sender": self.user.id,
+                    "timestamp": to_user_timezone(msg.created_at).isoformat(),
+                    "is_read": msg.is_read,
+                    "parent_id": parent_id,
+                }
             }
         )
 
