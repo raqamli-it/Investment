@@ -273,42 +273,13 @@ class ChatConsumer(AsyncWebsocketConsumer):
             }))
             return
 
-        message = data.get("message")
 
-        if self.user.is_authenticated and hasattr(self, "chat"):
-            # UTC vaqtni saqlash (Django best practice)
-            created_at_utc = timezone.now()
+    async def handle_send_message(self, data):
+        if not (self.user.is_authenticated and hasattr(self, "chat")):
+            return
 
-            # Xabarni bazaga saqlash
-            message_obj = await database_sync_to_async(Message.objects.create)(
-                chat=self.chat,
-                sender=self.user,
-                content=message,
-                created_at=created_at_utc
-            )
-
-            # Barcha ishtirokchilarga xabarni yuborish
-            await self.channel_layer.group_send(
-                self.room_group_name,
-                {
-                    "type": "chat_message",
-                    "message": message_obj.content,
-                    "sender": self.user.id,
-                    "timestamp": to_user_timezone(message_obj.created_at).isoformat(),
-                    "is_read": message_obj.is_read,
-
-                }
-            )
-
-            # Yangi xabar yuborilganda chat ro'yxatini yangilash
-            await self.update_user_chats()
-
-            # Yangi xabar yuborilganda qabul qiluvchiga o'qilmagan deb belgilash
-            await self.update_unread_status_for_receiver(message_obj)
-
-    async def handle_send_message(self, data):  # Xabar yuborish (reply bilan)
         message_text = data.get("message")
-        parent_id = data.get("parent_id")  # reply qilingan message ID
+        parent_id = data.get("parent_id")
 
         created_at_utc = timezone.now()
 
@@ -330,10 +301,17 @@ class ChatConsumer(AsyncWebsocketConsumer):
             "parent_id": parent_id,
         }
 
-        await self.channel_layer.group_send(self.room_group_name, {
-            "type": "chat_message",
-            "message": response
-        })
+        await self.channel_layer.group_send(
+            self.room_group_name,
+            {
+                "type": "chat_message",
+                "message": response
+            }
+        )
+
+        # 🔹 Chat list va unread update qilish
+        await self.update_user_chats()
+        await self.update_unread_status_for_receiver(msg)
 
     async def handle_edit_message(self, data):   # Message  Edit qilish
         msg_id = data.get("id")
@@ -458,12 +436,15 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
     async def chat_message(self, event):
         # WebSocket orqali xabarni yuborish
+        data = event["message"]
         await self.send(text_data=json.dumps({
             "type": "chat_message",
-            "message": event["message"],
-            "sender": event["sender"],
-            "timestamp": event["timestamp"],
-            "is_read": event.get("is_read", False)
+            "id": data["id"],
+            "message": data["message"],
+            "sender": data["sender"],
+            "timestamp": data["timestamp"],
+            "is_read": data.get("is_read", False),
+            "parent_id": data.get("parent_id")
         }))
 
     async def chat_list_update(self, event):
