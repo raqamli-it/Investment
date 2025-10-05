@@ -277,7 +277,6 @@ class ChatConsumer(AsyncWebsocketConsumer):
             }))
             return
 
-
     async def handle_send_message(self, data):
         if not (self.user.is_authenticated and hasattr(self, "chat")):
             return
@@ -295,24 +294,25 @@ class ChatConsumer(AsyncWebsocketConsumer):
             created_at=created_at_utc
         )
 
+        # ✅ Logging payload
         logger = logging.getLogger(__name__)
+        payload = {
+            "id": msg.id,
+            "message": msg.content,
+            "sender": self.user.id,
+            "timestamp": to_user_timezone(msg.created_at).isoformat(),
+            "is_read": msg.is_read,
+            "parent_id": parent_id,
+        }
+        logger.info(f"GROUP_SEND PAYLOAD: {json.dumps(payload)}")  # shu yerda
 
         await self.channel_layer.group_send(
             self.room_group_name,
             {
                 "type": "chat_message",
-                "message": {
-                    "id": msg.id,
-                    "message": msg.content,
-                    "sender": self.user.id,
-                    "timestamp": to_user_timezone(msg.created_at).isoformat(),
-                    "is_read": msg.is_read,
-                    "parent_id": parent_id,
-                }
+                "message": payload
             }
         )
-
-        logger.info(f"GROUP_SEND PAYLOAD: {msg.id} -> {msg.content}")
 
         # 🔹 Chat list va unread update qilish
         await self.update_user_chats()
