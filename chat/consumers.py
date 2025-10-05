@@ -325,7 +325,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
         msg_id = data.get("id")
         new_text = data.get("text")
 
-        msg = await database_sync_to_async(Message.objects.get)(id=msg_id)
+        msg = await database_sync_to_async(lambda: Message.objects.select_related("sender").get(id=msg_id))()
 
         if msg.sender == self.user and not msg.is_deleted:
             msg.content = new_text
