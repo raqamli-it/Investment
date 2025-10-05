@@ -346,21 +346,32 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
     async def handle_delete_messages(self, data):
         ids = data.get("ids")
-        if not ids:
-            # Agar faqat bitta id kelsa
-            msg_id = data.get("id")
-            if msg_id:
-                ids = [msg_id]
+        msg_id = data.get("id")
 
-        if not ids:
-            return  # hech narsa kelmagan bo‘lsa chiqib ketamiz
+        # 1️⃣ Agar ids bitta son bo‘lsa, uni listga o‘gir
+        if isinstance(ids, int):
+            ids = [ids]
 
-        # Faqat o‘zining yozgan va o‘chirilmagan xabarlarini olish
+        # 2️⃣ Agar ids string bo‘lsa, uni vergul bo‘yicha bo‘lib, int ga o‘giramiz
+        elif isinstance(ids, str):
+            ids = [int(x.strip()) for x in ids.split(",") if x.strip().isdigit()]
+
+        # 3️⃣ Agar ids yo‘q bo‘lsa, msg_id ni tekshiramiz
+        elif not ids and msg_id:
+            ids = [msg_id]
+
+        # 4️⃣ Agar umuman yo‘q bo‘lsa chiqamiz
+        if not ids:
+            await self.send(text_data=json.dumps({
+                "error": "No valid message IDs provided"
+            }))
+            return
+
+        # ✅ Faqat o‘zining yozgan va o‘chirilmagan xabarlarini olish
         msgs = await database_sync_to_async(list)(
             Message.objects.filter(id__in=ids, sender=self.user, is_deleted=False)
         )
 
-        # Agar xabar topilmasa yoki foydalanuvchi ruxsatsiz bo‘lsa:
         if not msgs:
             await self.send(text_data=json.dumps({
                 "error": "No messages found or you don't have permission"
