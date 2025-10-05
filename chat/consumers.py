@@ -362,9 +362,9 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
         # Agar xabar topilmasa yoki foydalanuvchi ruxsatsiz bo‘lsa:
         if not msgs:
-            await self.send_json({
+            await self.send(text_data=json.dumps({
                 "error": "No messages found or you don't have permission"
-            })
+            }))
             return
 
         deleted_ids = []
@@ -378,9 +378,6 @@ class ChatConsumer(AsyncWebsocketConsumer):
             "action": "delete_messages",
             "ids": deleted_ids
         }
-
-        # #  Log yozish (ixtiyoriy, lekin foydali)
-        # logger.info(f"DELETE PAYLOAD: {response}")
 
         await self.channel_layer.group_send(self.room_group_name, {
             "type": "chat_message",
