@@ -305,7 +305,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
             "is_read": msg.is_read,
             "parent_id": parent_id,
         }
-        logger.info(f"GROUP_SEND PAYLOAD: {json.dumps(message_dict)}")
+        # logger.info(f"GROUP_SEND PAYLOAD: {json.dumps(message_dict)}")
 
 
         # xabarni group_send orqali yuborish
@@ -360,6 +360,13 @@ class ChatConsumer(AsyncWebsocketConsumer):
             Message.objects.filter(id__in=ids, sender=self.user, is_deleted=False)
         )
 
+        # Agar xabar topilmasa yoki foydalanuvchi ruxsatsiz bo‘lsa:
+        if not msgs:
+            await self.send_json({
+                "error": "No messages found or you don't have permission"
+            })
+            return
+
         deleted_ids = []
         for msg in msgs:
             msg.is_deleted = True
@@ -371,6 +378,9 @@ class ChatConsumer(AsyncWebsocketConsumer):
             "action": "delete_messages",
             "ids": deleted_ids
         }
+
+        # #  Log yozish (ixtiyoriy, lekin foydali)
+        # logger.info(f"DELETE PAYLOAD: {response}")
 
         await self.channel_layer.group_send(self.room_group_name, {
             "type": "chat_message",
@@ -450,13 +460,13 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 data = json.loads(raw_data)
             except json.JSONDecodeError:
                 # Xato bo'lsa log qilamiz va chiqamiz
-                logger.warning(f"Invalid JSON data received: {raw_data}")
+                # logger.warning(f"Invalid JSON data received: {raw_data}")
                 return
         elif isinstance(raw_data, dict):
             data = raw_data
         else:
-            # raw_data bo'sh yoki noto'g'ri formatda bo'lsa, chiqamiz
-            logger.warning(f"Empty or invalid data received: {raw_data}")
+                # # raw_data bo'sh yoki noto'g'ri formatda bo'lsa, chiqamiz
+                # logger.warning(f"Empty or invalid data received: {raw_data}")
             return
 
         await self.send(text_data=json.dumps({
