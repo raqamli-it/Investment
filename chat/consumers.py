@@ -179,6 +179,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
                     "message": message.content,
                     "timestamp": to_user_timezone(message.created_at).isoformat(), # timmeeeeeeee
                     "is_read": message.is_read,  # Xabar o‘qilganligini ko‘rsatish
+                    "parent_id": message.parent.id if message.parent else None,
                 }
                 for message in messages
             ]
