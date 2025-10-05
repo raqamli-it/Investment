@@ -304,9 +304,8 @@ class ChatConsumer(AsyncWebsocketConsumer):
             "is_read": msg.is_read,
             "parent_id": parent_id,
         }
-
-        # 🔹 LOG: group_send dan oldin payloadni ko‘rsatish
         logger.info(f"GROUP_SEND PAYLOAD: {json.dumps(message_dict)}")
+
 
         # xabarni group_send orqali yuborish
         await self.channel_layer.group_send(
@@ -445,11 +444,19 @@ class ChatConsumer(AsyncWebsocketConsumer):
     async def chat_message(self, event):
         raw_data = event["message"]
 
-        # agar raw_data string bo'lsa dict ga aylantiramiz
-        if isinstance(raw_data, str):
-            data = json.loads(raw_data)
-        else:
+        if isinstance(raw_data, str) and raw_data.strip():  # bo'sh emasligini tekshiramiz
+            try:
+                data = json.loads(raw_data)
+            except json.JSONDecodeError:
+                # Xato bo'lsa log qilamiz va chiqamiz
+                logger.warning(f"Invalid JSON data received: {raw_data}")
+                return
+        elif isinstance(raw_data, dict):
             data = raw_data
+        else:
+            # raw_data bo'sh yoki noto'g'ri formatda bo'lsa, chiqamiz
+            logger.warning(f"Empty or invalid data received: {raw_data}")
+            return
 
         await self.send(text_data=json.dumps({
             "type": "chat_message",
