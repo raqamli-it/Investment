@@ -257,7 +257,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
             await self.handle_edit_message(data)
 
         # Delete qilish (list ni ham delete qilish mumkin va 1 ta message ni ham)
-        elif action == "handle_delete_messages":
+        elif action == "delete_messages":
             await self.handle_delete_messages(data)
 
 
