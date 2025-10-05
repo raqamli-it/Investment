@@ -443,7 +443,14 @@ class ChatConsumer(AsyncWebsocketConsumer):
         )
 
     async def chat_message(self, event):
-        data = event["message"]  # bu endi dict bo‘ladi
+        raw_data = event["message"]
+
+        # agar raw_data string bo'lsa dict ga aylantiramiz
+        if isinstance(raw_data, str):
+            data = json.loads(raw_data)
+        else:
+            data = raw_data
+
         await self.send(text_data=json.dumps({
             "type": "chat_message",
             "id": data["id"],
