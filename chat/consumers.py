@@ -1,4 +1,5 @@
 import logging
+from asyncio.log import logger
 
 from django.conf import settings
 from django.db.models import Q
@@ -277,6 +278,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
             }))
             return
 
+
     async def handle_send_message(self, data):
         if not (self.user.is_authenticated and hasattr(self, "chat")):
             return
@@ -294,9 +296,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
             created_at=created_at_utc
         )
 
-        # ✅ Logging payload
-        logger = logging.getLogger(__name__)
-        payload = {
+        message_dict = {
             "id": msg.id,
             "message": msg.content,
             "sender": self.user.id,
@@ -304,13 +304,16 @@ class ChatConsumer(AsyncWebsocketConsumer):
             "is_read": msg.is_read,
             "parent_id": parent_id,
         }
-        logger.info(f"GROUP_SEND PAYLOAD: {json.dumps(payload)}")  # shu yerda
 
+        # 🔹 LOG: group_send dan oldin payloadni ko‘rsatish
+        logger.info(f"GROUP_SEND PAYLOAD: {json.dumps(message_dict)}")
+
+        # xabarni group_send orqali yuborish
         await self.channel_layer.group_send(
             self.room_group_name,
             {
                 "type": "chat_message",
-                "message": payload
+                "message": message_dict
             }
         )
 
@@ -431,7 +434,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
         sender_chats = await self.get_user_chats(self.user.id)
 
         sender_room_group_name = f"user_{self.user.id}"
-        await self.channel_layer.group_send(
+        await self.channel_layer    .group_send(
             sender_room_group_name,
             {
                 "type": "chat_list_update",
@@ -440,10 +443,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
         )
 
     async def chat_message(self, event):
-        # WebSocket orqali xabarni yuborish
-        # print(">>> EVENT:", event, type(event["message"]))  #  debug
-
-        data = event["message"]
+        data = event["message"]  # bu endi dict bo‘ladi
         await self.send(text_data=json.dumps({
             "type": "chat_message",
             "id": data["id"],
