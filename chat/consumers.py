@@ -461,10 +461,10 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
         await self.send(text_data=json.dumps({
             "type": "chat_message",
-            "id": data["id"],
-            "message": data["message"],
-            "sender": data["sender"],
-            "timestamp": data["timestamp"],
+            "id": data.get("id"),
+            "message": data.get("message") or data.get("new_text"),
+            "sender": data.get("sender"),
+            "timestamp": data.get("timestamp"),
             "is_read": data.get("is_read", False),
             "parent_id": data.get("parent_id")
         }))
