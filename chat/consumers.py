@@ -699,8 +699,7 @@ class GroupChatConsumer(AsyncWebsocketConsumer):
                     "sender_name": self.user.first_name,
                     "sender_photo": f"{site_url}{media_url}{self.user.photo}" if self.user.photo else None,
                     "timestamp": to_user_timezone(message_obj.created_at).isoformat(),
-                    "reply_to": parent.id if parent else None,
-                    "reply_text": parent.content if parent else None,
+                    "parent": parent,
                     "is_read": False,
                 }
             )
@@ -885,6 +884,7 @@ class GroupChatConsumer(AsyncWebsocketConsumer):
                 "sender_name": message.sender.first_name,
                 "message": message.content,
                 "sender_photo": f"{site_url}{media_url}{message.sender.photo}" if message.sender.photo else None,
+                "parent": message.parent if message.parent else None,
                 "timestamp": time_str,
                 "is_read": reads_map.get(message.id, False)
             })
