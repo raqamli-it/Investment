@@ -888,7 +888,11 @@ class GroupChatConsumer(AsyncWebsocketConsumer):
                 "sender_name": message.sender.first_name,
                 "message": message.content,
                 "sender_photo": f"{site_url}{media_url}{message.sender.photo}" if message.sender.photo else None,
-                "parent": message.parent if message.parent else None,
+                "parent": {
+                    "id": message.parent.id,
+                    "message": message.parent.content[:50],
+                    "sender_name": message.parent.sender.first_name
+                } if message.parent else None,
                 "timestamp": time_str,
                 "is_read": reads_map.get(message.id, False)
             })
