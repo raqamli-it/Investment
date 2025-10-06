@@ -781,193 +781,193 @@ class GroupChatConsumer(AsyncWebsocketConsumer):
             return
 
 
-async def chat_edited(self, event):
-    await self.send_json({
-        "type": "chat_edited",
-        "message_id": event["message_id"],
-        "new_message": event["new_message"],
-        "edited": event["edited"]
-    })
+    async def chat_edited(self, event):
+        await self.send_json({
+            "type": "chat_edited",
+            "message_id": event["message_id"],
+            "new_message": event["new_message"],
+            "edited": event["edited"]
+        })
 
 
-async def chat_deleted(self, event):
-    await self.send_json({
-        "type": "chat_deleted",
-        "deleted_ids": event["deleted_ids"],
-        "message_text": event.get("message_text", "This message was deleted")
-    })
+    async def chat_deleted(self, event):
+        await self.send_json({
+            "type": "chat_deleted",
+            "deleted_ids": event["deleted_ids"],
+            "message_text": event.get("message_text", "This message was deleted")
+        })
 
 
-async def chat_read(self, event):
-    await self.send(json.dumps({
-        "type": "chat_read",
-        "message_id": event["message_id"],
-        "reader_id": event["reader_id"],
-        "is_read": event.get("is_read", True)  # default True
-    }))
-
-
-async def chat_message(self, event):
-    # Yangi xabar yuborish (har ikkala case uchun ishlaydi)
-    await self.send(json.dumps({
-        "type": "chat_message",
-        "message_id": event.get("message_id"),
-        "message": event.get("message"),
-        "sender": event.get("sender"),
-        "sender_name": event.get("sender_name"),
-        "sender_photo": event.get("sender_photo"),
-        "parent": event.get("parent"),
-        "timestamp": event.get("timestamp"),
-        "is_read": event.get("is_read", False)
-    }))
-
-
-async def user_status_update(self, event):
-    """Foydalanuvchi online/offline statusini yangilash"""
-    await self.send_json({
-        "type": "user_status_update",
-        "user_id": event.get("user_id"),
-        "status": event.get("status")  # "online" yoki "offline"
-    })
-
-
-async def group_list_update(self, event):
-    """Barcha foydalanuvchilarga guruhlar royxatini yangilash"""
-    if event.get("user_id") == self.user.id:
-        if self.group_id:
-            return
+    async def chat_read(self, event):
         await self.send(json.dumps({
-            "type": "group_list",
-            "groups": event["groups"]
+            "type": "chat_read",
+            "message_id": event["message_id"],
+            "reader_id": event["reader_id"],
+            "is_read": event.get("is_read", True)  # default True
         }))
 
 
-@database_sync_to_async
-def get_user_groups(self, user):
-    site_url = getattr(settings, "SITE_URL", "")
-    media_url = getattr(settings, "MEDIA_URL", "/media/")
-    groups = GroupChat.objects.filter(members=user).prefetch_related("messages")
-    return [
-        {
-            "id": group.id,
-            "image": f"{site_url}{media_url}{group.image}" if group.image else None,
-            "name": group.name,
-            "last_message": (group.messages.last().content if group.messages.exists() else ""),
-            "last_updated": (
-                to_user_timezone(group.messages.last().created_at).isoformat()
-                if group.messages.exists() else ""
-            ),
-            "unread_count": GroupMessageRead.objects.filter(
-                message__group=group, user=user, is_read=False
-            ).exclude(message__sender=user).count()
-        }
-        for group in groups
-    ]
+    async def chat_message(self, event):
+        # Yangi xabar yuborish (har ikkala case uchun ishlaydi)
+        await self.send(json.dumps({
+            "type": "chat_message",
+            "message_id": event.get("message_id"),
+            "message": event.get("message"),
+            "sender": event.get("sender"),
+            "sender_name": event.get("sender_name"),
+            "sender_photo": event.get("sender_photo"),
+            "parent": event.get("parent"),
+            "timestamp": event.get("timestamp"),
+            "is_read": event.get("is_read", False)
+        }))
 
 
-@database_sync_to_async
-def get_chat_history(self):
-    site_url = getattr(settings, "SITE_URL", "")
-    media_url = getattr(settings, "MEDIA_URL", "/media/")
-
-    messages = GroupMessage.objects.filter(
-        group_id=self.group_id
-    ).order_by("created_at").select_related("sender")
-
-    group = GroupChat.objects.filter(id=self.group_id).prefetch_related("members").first()
-    if not group:
-        return {"messages_by_date": [], "members": []}
-
-    # O‘qilganlar jadvali oldindan olish
-    reads = GroupMessageRead.objects.filter(
-        message__group_id=self.group_id, is_read=True
-    ).exclude(user_id__in=messages.values("sender_id"))
-    reads_map = {r.message_id: True for r in reads}
-
-    grouped_messages = defaultdict(list)
-    for message in messages:
-        local_time = to_user_timezone(message.created_at, "Asia/Tashkent")
-        date_str = local_time.strftime("%Y-%m-%d")
-        time_str = local_time.strftime("%H:%M:%S")
-
-        grouped_messages[date_str].append({
-            "id": message.id,
-            "sender": message.sender.id,
-            "sender_name": message.sender.first_name,
-            "message": message.content,
-            "sender_photo": f"{site_url}{media_url}{message.sender.photo}" if message.sender.photo else None,
-            "parent": {
-                "id": message.parent.id,
-                "message": message.parent.content[:50],
-                "sender_name": message.parent.sender.first_name
-            } if message.parent else None,
-            "timestamp": time_str,
-            "is_read": reads_map.get(message.id, False)
+    async def user_status_update(self, event):
+        """Foydalanuvchi online/offline statusini yangilash"""
+        await self.send_json({
+            "type": "user_status_update",
+            "user_id": event.get("user_id"),
+            "status": event.get("status")  # "online" yoki "offline"
         })
 
-    messages_by_date = [
-        {"date": date, "messages": msgs}
-        for date, msgs in sorted(grouped_messages.items())
-    ]
 
-    members_data = [
-        {
-            "id": member.id,
-            "username": member.username,
-            "photo": f"{site_url}{media_url}{member.photo}" if member.photo else None,
-            "first_name": member.first_name,
-            "last_name": member.last_name,
+    async def group_list_update(self, event):
+        """Barcha foydalanuvchilarga guruhlar royxatini yangilash"""
+        if event.get("user_id") == self.user.id:
+            if self.group_id:
+                return
+            await self.send(json.dumps({
+                "type": "group_list",
+                "groups": event["groups"]
+            }))
+
+
+    @database_sync_to_async
+    def get_user_groups(self, user):
+        site_url = getattr(settings, "SITE_URL", "")
+        media_url = getattr(settings, "MEDIA_URL", "/media/")
+        groups = GroupChat.objects.filter(members=user).prefetch_related("messages")
+        return [
+            {
+                "id": group.id,
+                "image": f"{site_url}{media_url}{group.image}" if group.image else None,
+                "name": group.name,
+                "last_message": (group.messages.last().content if group.messages.exists() else ""),
+                "last_updated": (
+                    to_user_timezone(group.messages.last().created_at).isoformat()
+                    if group.messages.exists() else ""
+                ),
+                "unread_count": GroupMessageRead.objects.filter(
+                    message__group=group, user=user, is_read=False
+                ).exclude(message__sender=user).count()
+            }
+            for group in groups
+        ]
+
+
+    @database_sync_to_async
+    def get_chat_history(self):
+        site_url = getattr(settings, "SITE_URL", "")
+        media_url = getattr(settings, "MEDIA_URL", "/media/")
+
+        messages = GroupMessage.objects.filter(
+            group_id=self.group_id
+        ).order_by("created_at").select_related("sender")
+
+        group = GroupChat.objects.filter(id=self.group_id).prefetch_related("members").first()
+        if not group:
+            return {"messages_by_date": [], "members": []}
+
+        # O‘qilganlar jadvali oldindan olish
+        reads = GroupMessageRead.objects.filter(
+            message__group_id=self.group_id, is_read=True
+        ).exclude(user_id__in=messages.values("sender_id"))
+        reads_map = {r.message_id: True for r in reads}
+
+        grouped_messages = defaultdict(list)
+        for message in messages:
+            local_time = to_user_timezone(message.created_at, "Asia/Tashkent")
+            date_str = local_time.strftime("%Y-%m-%d")
+            time_str = local_time.strftime("%H:%M:%S")
+
+            grouped_messages[date_str].append({
+                "id": message.id,
+                "sender": message.sender.id,
+                "sender_name": message.sender.first_name,
+                "message": message.content,
+                "sender_photo": f"{site_url}{media_url}{message.sender.photo}" if message.sender.photo else None,
+                "parent": {
+                    "id": message.parent.id,
+                    "message": message.parent.content[:50],
+                    "sender_name": message.parent.sender.first_name
+                } if message.parent else None,
+                "timestamp": time_str,
+                "is_read": reads_map.get(message.id, False)
+            })
+
+        messages_by_date = [
+            {"date": date, "messages": msgs}
+            for date, msgs in sorted(grouped_messages.items())
+        ]
+
+        members_data = [
+            {
+                "id": member.id,
+                "username": member.username,
+                "photo": f"{site_url}{media_url}{member.photo}" if member.photo else None,
+                "first_name": member.first_name,
+                "last_name": member.last_name,
+            }
+            for member in group.members.all()
+        ]
+
+        return {
+            "messages_by_date": messages_by_date,
+            "members": members_data
         }
-        for member in group.members.all()
-    ]
-
-    return {
-        "messages_by_date": messages_by_date,
-        "members": members_data
-    }
 
 
-@database_sync_to_async
-def mark_messages_as_read(self):
-    unread_qs = GroupMessageRead.objects.filter(message__group_id=self.group_id, user=self.user, is_read=False)
-    read_ids = list(unread_qs.values_list("message_id", flat=True))
-    unread_qs.update(is_read=True)
-    return read_ids
+    @database_sync_to_async
+    def mark_messages_as_read(self):
+        unread_qs = GroupMessageRead.objects.filter(message__group_id=self.group_id, user=self.user, is_read=False)
+        read_ids = list(unread_qs.values_list("message_id", flat=True))
+        unread_qs.update(is_read=True)
+        return read_ids
 
 
-async def group_messages_read(self, event):
-    await self.send(json.dumps({
-        "type": "group_messages_read",
-        "group_id": event["group_id"],
-        "message_ids": event["message_ids"],
-        "reader_id": event["reader_id"]
-    }))
+    async def group_messages_read(self, event):
+        await self.send(json.dumps({
+            "type": "group_messages_read",
+            "group_id": event["group_id"],
+            "message_ids": event["message_ids"],
+            "reader_id": event["reader_id"]
+        }))
 
 
-async def disconnect(self, close_code):
-    """ Foydalanuvchi chiqqanda WebSocket kanalidan chiqarish"""
-    if hasattr(self, "room_group_name"):
-        await self.channel_layer.group_discard(self.room_group_name, self.channel_name)
-    await self.channel_layer.group_discard("global_group_updates", self.channel_name)
-    await self.channel_layer.group_discard(f"user_{self.user.id}", self.channel_name)  # me
+    async def disconnect(self, close_code):
+        """ Foydalanuvchi chiqqanda WebSocket kanalidan chiqarish"""
+        if hasattr(self, "room_group_name"):
+            await self.channel_layer.group_discard(self.room_group_name, self.channel_name)
+        await self.channel_layer.group_discard("global_group_updates", self.channel_name)
+        await self.channel_layer.group_discard(f"user_{self.user.id}", self.channel_name)  # me
 
 
-@database_sync_to_async
-def search_user_groups(self, user, search_query):
-    site_url = getattr(settings, "SITE_URL", "")
-    media_url = getattr(settings, "MEDIA_URL", "/media/")
-    groups = GroupChat.objects.filter(members=user, name__icontains=search_query).prefetch_related("messages")
-    result = []
-    for group in groups:
-        last = group.messages.last()
-        result.append({
-            "type": "group",
-            "id": group.id,
-            "image": f"{site_url}{media_url}{group.image}" if group.image else None,
-            "name": group.name,
-            "last_message": last.content if last else "",
-            "last_updated": to_user_timezone(last.created_at).isoformat() if last else "",
-            "unread_count": GroupMessageRead.objects.filter(message__group=group, user=user, is_read=False).exclude(
-                message__sender=user).count()
-        })
-    return result
+    @database_sync_to_async
+    def search_user_groups(self, user, search_query):
+        site_url = getattr(settings, "SITE_URL", "")
+        media_url = getattr(settings, "MEDIA_URL", "/media/")
+        groups = GroupChat.objects.filter(members=user, name__icontains=search_query).prefetch_related("messages")
+        result = []
+        for group in groups:
+            last = group.messages.last()
+            result.append({
+                "type": "group",
+                "id": group.id,
+                "image": f"{site_url}{media_url}{group.image}" if group.image else None,
+                "name": group.name,
+                "last_message": last.content if last else "",
+                "last_updated": to_user_timezone(last.created_at).isoformat() if last else "",
+                "unread_count": GroupMessageRead.objects.filter(message__group=group, user=user, is_read=False).exclude(
+                    message__sender=user).count()
+            })
+        return result
