@@ -647,6 +647,7 @@ class GroupChatConsumer(AsyncWebsocketConsumer):
             return
 
         # === 3. SEND / REPLY ===
+        # === 3. SEND / REPLY ===
         if action == "send_message":
             message_text = data.get("message")
             parent_id = data.get("parent_id")
@@ -672,7 +673,7 @@ class GroupChatConsumer(AsyncWebsocketConsumer):
                 created_at=timestamp
             )
 
-            # Group members
+            # Guruh a'zolari
             members = await database_sync_to_async(
                 lambda: list(GroupChat.objects.get(id=self.group_id).members.all())
             )()
@@ -702,8 +703,6 @@ class GroupChatConsumer(AsyncWebsocketConsumer):
                         "message": parent.content[:50],
                         "sender_name": parent.sender.first_name
                     } if parent else None
-                }
-            )
                 }
             )
             return
