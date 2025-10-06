@@ -656,10 +656,11 @@ class GroupChatConsumer(AsyncWebsocketConsumer):
                 await self.send_json({"error": "message is required"})
                 return
 
-            parent = None
             if parent_id:
                 try:
-                    parent = await database_sync_to_async(GroupMessage.objects.get)(id=parent_id)
+                    parent = await database_sync_to_async(
+                        lambda: GroupMessage.objects.select_related("sender").get(id=parent_id)
+                    )()
                 except GroupMessage.DoesNotExist:
                     parent = None
 
