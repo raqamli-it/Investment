@@ -604,17 +604,17 @@ class GroupChatConsumer(AsyncWebsocketConsumer):
             group.members.add(self.user)
 
     async def receive(self, text_data):
-        """Yangi xabar yoki boshqa hodisalarni qabul qilish"""
         data = json.loads(text_data)
+        action = data.get("action")
 
-        # Search
+        # === 1. SEARCH ===
         search_query = data.get("search", "").strip()
         if search_query:
             groups = await self.search_user_groups(self.user, search_query)
             await self.send(json.dumps({"type": "search_results", "results": groups}))
             return
 
-        # Agar client "read": true yuborsa -> belgilash va yuborish logikasi
+        # === 2. READ ===
         if data.get("read") and self.group_id:
             read_ids = await self.mark_messages_as_read()
             if not read_ids:
@@ -632,13 +632,11 @@ class GroupChatConsumer(AsyncWebsocketConsumer):
                     lambda: GroupMessageRead.objects.filter(message=message, is_read=True).count()
                 )()
 
-                # Agar barcha boshqa a'zolar o'qib bo'lgan bo'lsa -> bazada hamma uchun True
                 if members_count <= 1 or read_count >= (members_count - 1):
                     await database_sync_to_async(
                         lambda: GroupMessageRead.objects.filter(message=message).update(is_read=True)
                     )()
 
-                # Faqat yuboruvchiga xabarni o‘qilganini yuborish
                 if message.sender_id != self.user.id:
                     await self.channel_layer.group_send(
                         f"user_{message.sender_id}",
@@ -646,52 +644,51 @@ class GroupChatConsumer(AsyncWebsocketConsumer):
                             "type": "chat_read",
                             "message_id": message.id,
                             "reader_id": self.user.id,
-                            "is_read": True  # qo‘shildi
+                            "is_read": True
                         }
                     )
             return
 
-        # Xabar yuborish (old behavior)
-        message_text = data.get("message")
-        if self.user.is_authenticated and self.group_id and message_text:
-            site_url = getattr(settings, "SITE_URL", "")
-            media_url = getattr(settings, "MEDIA_URL", "/media/")
-            timestamp = timezone.now()
-            # timestamp = timezone.localtime(timezone.now())
+        # === 3. SEND / REPLY ===
+        if action == "send_message":
+            message_text = data.get("message")
+            parent_id = data.get("parent_id")
 
-            # Xabarni bazaga yozish
+            if not message_text:
+                await self.send_json({"error": "message is required"})
+                return
+
+            parent = None
+            if parent_id:
+                try:
+                    parent = await database_sync_to_async(GroupMessage.objects.get)(id=parent_id)
+                except GroupMessage.DoesNotExist:
+                    parent = None
+
+            timestamp = timezone.now()
+
             message_obj = await database_sync_to_async(GroupMessage.objects.create)(
                 group_id=self.group_id,
                 sender=self.user,
                 content=message_text,
+                reply_to=parent,
                 created_at=timestamp
             )
 
+            # Group members
             members = await database_sync_to_async(
                 lambda: list(GroupChat.objects.get(id=self.group_id).members.all())
             )()
 
-            unread_users = []
             for member in members:
                 if member != self.user:
                     await database_sync_to_async(GroupMessageRead.objects.create)(
                         message=message_obj, user=member, is_read=False
                     )
-                    unread_users.append(member.id)
 
-            # Guruhlar ro'yxatini yangilash (global updater)
-            for member in members:
-                updated_groups = await self.get_user_groups(member)
-                await self.channel_layer.group_send(
-                    "global_group_updates",
-                    {
-                        "type": "group_list_update",
-                        "groups": updated_groups,
-                        "user_id": member.id
-                    }
-                )
+            site_url = getattr(settings, "SITE_URL", "")
+            media_url = getattr(settings, "MEDIA_URL", "/media/")
 
-            #Guruhga xabarni yuborish (initial: is_read = False)
             await self.channel_layer.group_send(
                 self.room_group_name,
                 {
@@ -702,9 +699,97 @@ class GroupChatConsumer(AsyncWebsocketConsumer):
                     "sender_name": self.user.first_name,
                     "sender_photo": f"{site_url}{media_url}{self.user.photo}" if self.user.photo else None,
                     "timestamp": to_user_timezone(message_obj.created_at).isoformat(),
+                    "reply_to": parent.id if parent else None,
+                    "reply_text": parent.content if parent else None,
                     "is_read": False,
                 }
             )
+            return
+
+        if action == "edit_message":
+            msg_id = data.get("message_id")
+            new_text = data.get("new_message")
+
+            if not msg_id or not new_text:
+                await self.send_json({"error": "message_id and new_message required"})
+                return
+
+            try:
+                msg = await database_sync_to_async(GroupMessage.objects.get)(id=msg_id)
+            except GroupMessage.DoesNotExist:
+                await self.send_json({"error": "Message not found"})
+                return
+
+            if msg.sender != self.user:
+                await self.send_json({"error": "You can only edit your own messages"})
+                return
+
+            msg.content = new_text
+            msg.edited = True
+            await database_sync_to_async(msg.save)()
+
+            await self.channel_layer.group_send(
+                self.room_group_name,
+                {
+                    "type": "chat_edited",
+                    "message_id": msg.id,
+                    "new_message": new_text,
+                    "edited": True,
+                }
+            )
+            return
+
+        if action == "delete_message":
+            msg_ids = data.get("message_ids") or data.get("message_id")
+
+            if not msg_ids:
+                await self.send_json({"error": "message_id or message_ids required"})
+                return
+
+            if isinstance(msg_ids, int):
+                msg_ids = [msg_ids]
+
+            deleted_ids = []
+
+            for msg_id in msg_ids:
+                try:
+                    msg = await database_sync_to_async(GroupMessage.objects.get)(id=msg_id)
+                except GroupMessage.DoesNotExist:
+                    continue
+
+                if msg.sender == self.user:
+                    msg.content = "This message was deleted"
+                    msg.is_deleted = True  # agar modelda bu field bo‘lsa (optional)
+                    await database_sync_to_async(msg.save)()
+                    deleted_ids.append(msg_id)
+
+            if deleted_ids:
+                await self.channel_layer.group_send(
+                    self.room_group_name,
+                    {
+                        "type": "chat_deleted",
+                        "deleted_ids": deleted_ids,
+                        "message_text": "This message was deleted"
+                    }
+                )
+            else:
+                await self.send_json({"error": "No messages deleted"})
+            return
+
+    async def chat_edited(self, event):
+        await self.send_json({
+            "type": "chat_edited",
+            "message_id": event["message_id"],
+            "new_message": event["new_message"],
+            "edited": event["edited"]
+        })
+
+    async def chat_deleted(self, event):
+        await self.send_json({
+            "type": "chat_deleted",
+            "deleted_ids": event["deleted_ids"],
+            "message_text": event.get("message_text", "This message was deleted")
+        })
 
     async def chat_read(self, event):
         await self.send(json.dumps({
@@ -815,44 +900,6 @@ class GroupChatConsumer(AsyncWebsocketConsumer):
             "members": members_data
         }
 
-        # @database_sync_to_async
-    # def get_chat_history(self):
-    #     site_url = getattr(settings, "SITE_URL", "")
-    #     media_url = getattr(settings, "MEDIA_URL", "/media/")
-    #
-    #     messages = GroupMessage.objects.filter(
-    #         group_id=self.group_id
-    #     ).order_by("created_at").select_related("sender")
-    #
-    #     members = list(GroupChat.objects.get(id=self.group_id).members.all())
-    #
-    #     result = []
-    #     for message in messages:
-    #         # Agar sender o'zi bo'lsa -> o'qilganlar bo'yicha hisoblash
-    #         if message.sender_id == self.user.id:
-    #             # Agar barcha boshqa a'zolar o'qigan bo'lsa -> True
-    #             members_count = len(members)
-    #             read_count = GroupMessageRead.objects.filter(
-    #                 message=message, is_read=True
-    #             ).count()
-    #             is_read = read_count >= (members_count - 1)
-    #         else:
-    #             # O'qigan foydalanuvchiga qarab
-    #             is_read = GroupMessageRead.objects.filter(
-    #                 message=message, user=self.user, is_read=True
-    #             ).exists()
-    #
-    #         result.append({
-    #             "id": message.id,
-    #             "sender": message.sender.id,
-    #             "sender_name": message.sender.first_name,
-    #             "message": message.content,
-    #             "sender_photo": f"{site_url}{media_url}{message.sender.photo}" if message.sender.photo else None,
-    #             "timestamp": to_user_timezone(message.created_at).isoformat(),
-    #             "is_read": is_read
-    #         })
-
-        # return result, members
 
     @database_sync_to_async
     def mark_messages_as_read(self):

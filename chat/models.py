@@ -70,7 +70,18 @@ class GroupMessage(models.Model):
     group = models.ForeignKey(GroupChat, on_delete=models.CASCADE, related_name="messages")
     sender = models.ForeignKey(User, on_delete=models.CASCADE)
     content = models.TextField()
+    parent = models.ForeignKey(
+        "self",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="replies"
+    )
+
+    is_edited = models.BooleanField(default=False)
+    is_deleted = models.BooleanField(default=False)
     is_read = models.BooleanField(default=False)
+    updated_at = models.DateTimeField(auto_now=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
