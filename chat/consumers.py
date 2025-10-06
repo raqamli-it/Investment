@@ -1,6 +1,3 @@
-import logging
-from asyncio.log import logger
-
 from django.conf import settings
 from django.db.models import Q
 from channels.generic.websocket import AsyncWebsocketConsumer
@@ -699,8 +696,14 @@ class GroupChatConsumer(AsyncWebsocketConsumer):
                     "sender_name": self.user.first_name,
                     "sender_photo": f"{site_url}{media_url}{self.user.photo}" if self.user.photo else None,
                     "timestamp": to_user_timezone(message_obj.created_at).isoformat(),
-                    "parent": parent,
                     "is_read": False,
+                    "parent": {
+                        "id": parent.id,
+                        "message": parent.content[:50],
+                        "sender_name": parent.sender.first_name
+                    } if parent else None
+                }
+            )
                 }
             )
             return
@@ -808,6 +811,7 @@ class GroupChatConsumer(AsyncWebsocketConsumer):
             "sender": event.get("sender"),
             "sender_name": event.get("sender_name"),
             "sender_photo": event.get("sender_photo"),
+            "parent": event.get("parent"),
             "timestamp": event.get("timestamp"),
             "is_read": event.get("is_read", False)
         }))
