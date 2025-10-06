@@ -671,7 +671,7 @@ class GroupChatConsumer(AsyncWebsocketConsumer):
                 group_id=self.group_id,
                 sender=self.user,
                 content=message_text,
-                reply_to=parent,
+                parent=parent,
                 created_at=timestamp
             )
 
