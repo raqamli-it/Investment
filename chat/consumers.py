@@ -799,6 +799,7 @@ class GroupChatConsumer(AsyncWebsocketConsumer):
             "is_read": event.get("is_read", True)  # default True
         }))
 
+
     async def chat_message(self, event):
         # Yangi xabar yuborish (har ikkala case uchun ishlaydi)
         await self.send(json.dumps({
@@ -811,6 +812,15 @@ class GroupChatConsumer(AsyncWebsocketConsumer):
             "timestamp": event.get("timestamp"),
             "is_read": event.get("is_read", False)
         }))
+
+    async def user_status_update(self, event):
+        """Foydalanuvchi online/offline statusini yangilash"""
+        await self.send_json({
+            "type": "user_status_update",
+            "user_id": event.get("user_id"),
+            "status": event.get("status")  # "online" yoki "offline"
+        })
+
 
     async def group_list_update(self, event):
         """Barcha foydalanuvchilarga guruhlar royxatini yangilash"""
