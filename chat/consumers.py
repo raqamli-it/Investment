@@ -549,17 +549,14 @@ from channels.generic.websocket import AsyncWebsocketConsumer
 from channels.db import database_sync_to_async
 from chat.models import GroupChat, GroupMessage, GroupMessageRead
 
-
 class GroupChatConsumer(AsyncWebsocketConsumer):
     async def connect(self):
-        """Websocketga ulanish"""
         self.user = self.scope["user"]
 
         if not self.user.is_authenticated:
             await self.close()
             return
 
-        # Har bir ulanayotgan foydalanuvchi uchun private kanal
         await self.channel_layer.group_add(f"user_{self.user.id}", self.channel_name)
 
         query_params = parse_qs(self.scope["query_string"].decode())
@@ -570,7 +567,7 @@ class GroupChatConsumer(AsyncWebsocketConsumer):
         except ValueError:
             self.group_id = None
 
-        # Guruhlar ro'yxatini olish
+        # groups ni olish (sync -> async)
         self.groups = await self.get_user_groups(self.user)
 
         if self.group_id:
@@ -579,12 +576,10 @@ class GroupChatConsumer(AsyncWebsocketConsumer):
         await self.accept()
 
         if not self.group_id:
-            # global group list updater
             await self.channel_layer.group_add("global_group_updates", self.channel_name)
             await self.send(json.dumps({"type": "group_list", "groups": self.groups}))
             return
 
-        # agar group_id bor bo'lsa: guruh kanaliga qo'shish va tarix yuborish
         self.room_group_name = f"group_{self.group_id}"
         await self.channel_layer.group_add(self.room_group_name, self.channel_name)
         history = await self.get_chat_history()
@@ -592,7 +587,6 @@ class GroupChatConsumer(AsyncWebsocketConsumer):
 
     @database_sync_to_async
     def add_user_to_group(self):
-        """Foydalanuvchuni guruh azolariga qoshish"""
         group = GroupChat.objects.get(id=self.group_id)
         if not group.members.filter(id=self.user.id).exists():
             group.members.add(self.user)
@@ -601,14 +595,14 @@ class GroupChatConsumer(AsyncWebsocketConsumer):
         data = json.loads(text_data)
         action = data.get("action")
 
-        # === 1. SEARCH ===
+        # 1) SEARCH
         search_query = data.get("search", "").strip()
         if search_query:
             groups = await self.search_user_groups(self.user, search_query)
             await self.send(json.dumps({"type": "search_results", "results": groups}))
             return
 
-        # === 2. READ ===
+        # 2) MARK READ
         if data.get("read") and self.group_id:
             read_ids = await self.mark_messages_as_read()
             if not read_ids:
@@ -643,18 +637,16 @@ class GroupChatConsumer(AsyncWebsocketConsumer):
                     )
             return
 
-        # === 3. SEND / REPLY ===
-        # === 3. SEND / REPLY ===
+        # 3) SEND / REPLY
         if action == "send_message":
             message_text = data.get("message")
             parent_id = data.get("parent_id")
 
             if not message_text:
-                await self.send_json({"error": "message is required"})
+                await self.send(json.dumps({"error": "message is required"}))
                 return
 
             parent = None
-
             if parent_id:
                 try:
                     parent = await database_sync_to_async(
@@ -673,7 +665,6 @@ class GroupChatConsumer(AsyncWebsocketConsumer):
                 created_at=timestamp
             )
 
-            # Guruh a'zolari
             members = await database_sync_to_async(
                 lambda: list(GroupChat.objects.get(id=self.group_id).members.all())
             )()
@@ -687,6 +678,15 @@ class GroupChatConsumer(AsyncWebsocketConsumer):
             site_url = getattr(settings, "SITE_URL", "")
             media_url = getattr(settings, "MEDIA_URL", "/media/")
 
+            # build parent payload serializable
+            parent_payload = None
+            if parent:
+                parent_payload = {
+                    "id": parent.id,
+                    "message": parent.content[:50],
+                    "sender_name": parent.sender.first_name if parent.sender else None
+                }
+
             await self.channel_layer.group_send(
                 self.room_group_name,
                 {
@@ -695,35 +695,32 @@ class GroupChatConsumer(AsyncWebsocketConsumer):
                     "message": message_obj.content,
                     "sender": self.user.id,
                     "sender_name": self.user.first_name,
-                    "sender_photo": f"{site_url}{media_url}{self.user.photo}" if self.user.photo else None,
+                    "sender_photo": f"{site_url}{media_url}{self.user.photo}" if getattr(self.user, "photo", None) else None,
                     "timestamp": to_user_timezone(message_obj.created_at).isoformat(),
                     "is_read": False,
-                    "parent": {
-                        "id": parent.id,
-                        "message": parent.content[:50],
-                        "sender_name": parent.sender.first_name
-                    } if parent else None
+                    "parent": parent_payload
                 }
             )
             return
 
+        # 4) EDIT
         if action == "edit_message":
             msg_id = data.get("message_id")
             new_text = data.get("new_message")
 
             if not msg_id or not new_text:
-                await self.send_json({"error": "message_id and new_message required"})
+                await self.send(json.dumps({"error": "message_id and new_message required"}))
                 return
 
             try:
                 msg = await database_sync_to_async(GroupMessage.objects.get)(id=msg_id)
             except GroupMessage.DoesNotExist:
-                await self.send_json({"error": "Message not found"})
+                await self.send(json.dumps({"error": "Message not found"}))
                 return
 
-            # if msg.sender != self.user: ❌ bu ORM query yuboradi (async ichida mumkin emas)
+            # Use .sender_id to avoid extra ORM lookup in async
             if msg.sender_id != self.user.id:
-                await self.send_json({"error": "You can only edit your own messages"})
+                await self.send(json.dumps({"error": "You can only edit your own messages"}))
                 return
 
             msg.content = new_text
@@ -741,29 +738,28 @@ class GroupChatConsumer(AsyncWebsocketConsumer):
             )
             return
 
+        # 5) DELETE (single or list)
         if action == "delete_message":
             msg_ids = data.get("message_ids") or data.get("message_id")
 
             if not msg_ids:
-                await self.send_json({"error": "message_id or message_ids required"})
+                await self.send(json.dumps({"error": "message_id or message_ids required"}))
                 return
 
-            # Yagona int bo‘lsa listga aylantiramiz
             if isinstance(msg_ids, int):
                 msg_ids = [msg_ids]
 
             deleted_ids = []
-
             for msg_id in msg_ids:
                 try:
                     msg = await database_sync_to_async(GroupMessage.objects.get)(id=msg_id)
                 except GroupMessage.DoesNotExist:
                     continue
 
-                # sender_id ishlatyapmiz — ORM query yubormaydi
                 if msg.sender_id == self.user.id:
+                    # do soft-delete style replacement (front uchun)
                     msg.content = "This message was deleted"
-                    msg.is_deleted = True
+                    msg.is_deleted = True  # agar modelda maydon bo'lsa
                     await database_sync_to_async(msg.save)()
                     deleted_ids.append(msg_id)
 
@@ -777,38 +773,34 @@ class GroupChatConsumer(AsyncWebsocketConsumer):
                     }
                 )
             else:
-                await self.send_json({"error": "No messages deleted"})
+                await self.send(json.dumps({"error": "No messages deleted"}))
             return
 
-
+    # Event handlers (channel_layer dan kelgan)
     async def chat_edited(self, event):
-        await self.send_json({
+        await self.send(json.dumps({
             "type": "chat_edited",
             "message_id": event["message_id"],
             "new_message": event["new_message"],
             "edited": event["edited"]
-        })
-
+        }))
 
     async def chat_deleted(self, event):
-        await self.send_json({
+        await self.send(json.dumps({
             "type": "chat_deleted",
             "deleted_ids": event["deleted_ids"],
             "message_text": event.get("message_text", "This message was deleted")
-        })
-
+        }))
 
     async def chat_read(self, event):
         await self.send(json.dumps({
             "type": "chat_read",
             "message_id": event["message_id"],
             "reader_id": event["reader_id"],
-            "is_read": event.get("is_read", True)  # default True
+            "is_read": event.get("is_read", True)
         }))
 
-
     async def chat_message(self, event):
-        # Yangi xabar yuborish (har ikkala case uchun ishlaydi)
         await self.send(json.dumps({
             "type": "chat_message",
             "message_id": event.get("message_id"),
@@ -821,18 +813,14 @@ class GroupChatConsumer(AsyncWebsocketConsumer):
             "is_read": event.get("is_read", False)
         }))
 
-
     async def user_status_update(self, event):
-        """Foydalanuvchi online/offline statusini yangilash"""
-        await self.send_json({
+        await self.send(json.dumps({
             "type": "user_status_update",
             "user_id": event.get("user_id"),
-            "status": event.get("status")  # "online" yoki "offline"
-        })
-
+            "status": event.get("status")
+        }))
 
     async def group_list_update(self, event):
-        """Barcha foydalanuvchilarga guruhlar royxatini yangilash"""
         if event.get("user_id") == self.user.id:
             if self.group_id:
                 return
@@ -840,7 +828,6 @@ class GroupChatConsumer(AsyncWebsocketConsumer):
                 "type": "group_list",
                 "groups": event["groups"]
             }))
-
 
     @database_sync_to_async
     def get_user_groups(self, user):
@@ -864,7 +851,6 @@ class GroupChatConsumer(AsyncWebsocketConsumer):
             for group in groups
         ]
 
-
     @database_sync_to_async
     def get_chat_history(self):
         site_url = getattr(settings, "SITE_URL", "")
@@ -872,13 +858,12 @@ class GroupChatConsumer(AsyncWebsocketConsumer):
 
         messages = GroupMessage.objects.filter(
             group_id=self.group_id
-        ).order_by("created_at").select_related("sender")
+        ).order_by("created_at").select_related("sender", "parent__sender")
 
         group = GroupChat.objects.filter(id=self.group_id).prefetch_related("members").first()
         if not group:
             return {"messages_by_date": [], "members": []}
 
-        # O‘qilganlar jadvali oldindan olish
         reads = GroupMessageRead.objects.filter(
             message__group_id=self.group_id, is_read=True
         ).exclude(user_id__in=messages.values("sender_id"))
@@ -890,17 +875,22 @@ class GroupChatConsumer(AsyncWebsocketConsumer):
             date_str = local_time.strftime("%Y-%m-%d")
             time_str = local_time.strftime("%H:%M:%S")
 
+            parent_payload = None
+            if getattr(message, "parent", None):
+                parent = message.parent
+                parent_payload = {
+                    "id": parent.id,
+                    "message": parent.content[:50],
+                    "sender_name": parent.sender.first_name if parent.sender else None
+                }
+
             grouped_messages[date_str].append({
                 "id": message.id,
                 "sender": message.sender.id,
                 "sender_name": message.sender.first_name,
                 "message": message.content,
                 "sender_photo": f"{site_url}{media_url}{message.sender.photo}" if message.sender.photo else None,
-                "parent": {
-                    "id": message.parent.id,
-                    "message": message.parent.content[:50],
-                    "sender_name": message.parent.sender.first_name
-                } if message.parent else None,
+                "parent": parent_payload,
                 "timestamp": time_str,
                 "is_read": reads_map.get(message.id, False)
             })
@@ -926,14 +916,12 @@ class GroupChatConsumer(AsyncWebsocketConsumer):
             "members": members_data
         }
 
-
     @database_sync_to_async
     def mark_messages_as_read(self):
         unread_qs = GroupMessageRead.objects.filter(message__group_id=self.group_id, user=self.user, is_read=False)
         read_ids = list(unread_qs.values_list("message_id", flat=True))
         unread_qs.update(is_read=True)
         return read_ids
-
 
     async def group_messages_read(self, event):
         await self.send(json.dumps({
@@ -943,14 +931,11 @@ class GroupChatConsumer(AsyncWebsocketConsumer):
             "reader_id": event["reader_id"]
         }))
 
-
     async def disconnect(self, close_code):
-        """ Foydalanuvchi chiqqanda WebSocket kanalidan chiqarish"""
         if hasattr(self, "room_group_name"):
             await self.channel_layer.group_discard(self.room_group_name, self.channel_name)
         await self.channel_layer.group_discard("global_group_updates", self.channel_name)
-        await self.channel_layer.group_discard(f"user_{self.user.id}", self.channel_name)  # me
-
+        await self.channel_layer.group_discard(f"user_{self.user.id}", self.channel_name)
 
     @database_sync_to_async
     def search_user_groups(self, user, search_query):
@@ -971,3 +956,4 @@ class GroupChatConsumer(AsyncWebsocketConsumer):
                     message__sender=user).count()
             })
         return result
+
