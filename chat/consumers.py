@@ -656,6 +656,8 @@ class GroupChatConsumer(AsyncWebsocketConsumer):
                 await self.send_json({"error": "message is required"})
                 return
 
+            parent = None
+
             if parent_id:
                 try:
                     parent = await database_sync_to_async(
