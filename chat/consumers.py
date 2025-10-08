@@ -173,6 +173,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
             },
             "messages": [
                 {
+                    "id": message.id,
                     "sender": message.sender.id,
                     "message": message.content,
                     "timestamp": to_user_timezone(message.created_at).isoformat(),  # timmeeeeeeee
