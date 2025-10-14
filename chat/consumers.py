@@ -1,3 +1,5 @@
+import asyncio
+
 from django.conf import settings
 from django.db.models import Q
 from channels.generic.websocket import AsyncWebsocketConsumer
@@ -79,6 +81,8 @@ class ChatConsumer(AsyncWebsocketConsumer):
                     "messages": messages
                 }))
 
+                await asyncio.sleep(0.1)
+
                 # Foydalanuvchi chatga kirganda barcha o'qilmagan xabarlarni o'qilgan deb belgilash
                 await self.mark_messages_as_read_and_update()
 
@@ -149,7 +153,8 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
         return has_unread_messages, read_ids  # read_ids ni ham qoshdim!!!!
 
-    async def messages_read(self, event):  # me
+    async def messages_read(self, event):
+        # await asyncio.sleep(0.5)  # biroz kechiktirish/
         await self.send(text_data=json.dumps({
             "type": "messages_read",
             "chat_id": event["chat_id"],
