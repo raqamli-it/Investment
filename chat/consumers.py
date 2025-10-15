@@ -81,7 +81,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
                     "messages": messages
                 }))
 
-                # await asyncio.sleep(0.1)
+                await asyncio.sleep(0.1)
 
                 # Foydalanuvchi chatga kirganda barcha o'qilmagan xabarlarni o'qilgan deb belgilash
                 await self.mark_messages_as_read_and_update()
@@ -154,7 +154,6 @@ class ChatConsumer(AsyncWebsocketConsumer):
         return has_unread_messages, read_ids  # read_ids ni ham qoshdim!!!!
 
     async def messages_read(self, event):
-        await asyncio.sleep(0.5)  # biroz kechiktirish/
         await self.send(text_data=json.dumps({
             "type": "messages_read",
             "chat_id": event["chat_id"],
@@ -387,14 +386,23 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
     async def notify_sender_about_read(self, read_message_ids):
         """
-        Qarshi foydalanuvchiga xabarlar o'qilganini real-time yuboradi.
+        Qarshi foydalanuvchiga xabarlar o‘qilganini real-time yuboradi.
         """
-        other_user_id = self.chat.user1.id if self.chat.user2.id == self.user.id else self.chat.user2.id
-        other_user_room = f"user_{other_user_id}"
+        if not read_message_ids:
+            return
 
-        # Senderga "messages_read" event yuborish
+        other_user_id = self.chat.user1.id if self.chat.user2.id == self.user.id else self.chat.user2.id
+        receiver = await database_sync_to_async(User.objects.get)(id=other_user_id)
+
+        if not receiver.is_online:
+            print(f"⚠️ Receiver {receiver.id} offline, skipping messages_read")
+            return
+
+        print(f"📨 Sending messages_read to user_{receiver.id}: {read_message_ids}")
+
+        # Har ikkala userga xabar yuborish
         await self.channel_layer.group_send(
-            other_user_room,
+            f"chat_{self.chat.id}",
             {
                 "type": "messages_read",
                 "message_ids": read_message_ids,
@@ -402,7 +410,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
             }
         )
 
-        # Oxirgi o‘qilgan xabarlarni "chat_message" qilib yangilab yuborish
+        # is_read=True holatini real-time yangilash
         for msg_id in read_message_ids:
             message = await database_sync_to_async(
                 lambda: Message.objects.select_related("sender").get(id=msg_id)
@@ -413,7 +421,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
                     "type": "chat_message",
                     "message": message.content,
                     "sender": message.sender.id,
-                    "timestamp": to_user_timezone(message.created_at).isoformat(),  # timeeee
+                    "timestamp": to_user_timezone(message.created_at).isoformat(),
                     "is_read": True
                 }
             )
