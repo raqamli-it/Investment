@@ -1,5 +1,3 @@
-import asyncio
-
 from django.conf import settings
 from django.db.models import Q
 from channels.generic.websocket import AsyncWebsocketConsumer
@@ -80,8 +78,6 @@ class ChatConsumer(AsyncWebsocketConsumer):
                     "type": "chat_history",
                     "messages": messages
                 }))
-
-                await asyncio.sleep(0.1)
 
                 # Foydalanuvchi chatga kirganda barcha o'qilmagan xabarlarni o'qilgan deb belgilash
                 await self.mark_messages_as_read_and_update()
@@ -244,34 +240,25 @@ class ChatConsumer(AsyncWebsocketConsumer):
         return chat_list
 
     async def receive(self, text_data):
-        # Xabar ma'lumotlarini olish
+        """
+        Foydalanuvchidan WebSocket orqali keladigan barcha xabarlarni boshqaradi:
+          - read (xabarlarni o'qilgan deb belgilash)
+          - search (chat yoki guruh izlash)
+          - send_message, edit_message, delete_messages (xabar bilan ishlash)
+        """
         data = json.loads(text_data)
         action = data.get("action")
 
-        if not action:
-            return
-
-        # 🔹 Xabar yuborish (yangi / reply)
-        if action == "send_message":
-            await self.handle_send_message(data)
-
-        # 🔹 Edit qilish
-        elif action == "edit_message":
-            await self.handle_edit_message(data)
-
-        # Delete qilish (list ni ham delete qilish mumkin va 1 ta message ni ham)
-        elif action == "delete_messages":
-            await self.handle_delete_messages(data)
-
-        # Chat oynasiga kirganda, o'qilmagan xabarlarni o'qilgan deb belgilash
+        #  O‘qilgan xabarlarni qayd etish
         read = data.get("read")
         if read and hasattr(self, "chat"):
-            has_unread_messages, read_message_ids = await self.mark_messages_as_read()  # me
+            has_unread_messages, read_message_ids = await self.mark_messages_as_read()
             if has_unread_messages:
                 await self.update_user_chats()
-                await self.notify_sender_about_read(read_message_ids)  # me
+                await self.notify_sender_about_read(read_message_ids)
             return
 
+        #  Qidiruv so‘rovlarini qayta ishlash
         search_query = data.get("search", "").strip()
         if search_query:
             search_results = await self.search_chats_and_groups(self.user.id, search_query)
@@ -280,6 +267,22 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 "results": search_results
             }))
             return
+
+        # Action asosida boshqa amallar
+        if not action:
+            return
+
+        # Xabar yuborish (yangi yoki reply)
+        if action == "send_message":
+            await self.handle_send_message(data)
+
+        # Xabarni tahrirlash
+        elif action == "edit_message":
+            await self.handle_edit_message(data)
+
+        # Xabarlarni o‘chirish (bitta yoki bir nechta)
+        elif action == "delete_messages":
+            await self.handle_delete_messages(data)
 
     async def handle_send_message(self, data):
         if not (self.user.is_authenticated and hasattr(self, "chat")):
@@ -386,23 +389,14 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
     async def notify_sender_about_read(self, read_message_ids):
         """
-        Qarshi foydalanuvchiga xabarlar o‘qilganini real-time yuboradi.
+        Qarshi foydalanuvchiga xabarlar o'qilganini real-time yuboradi.
         """
-        if not read_message_ids:
-            return
-
         other_user_id = self.chat.user1.id if self.chat.user2.id == self.user.id else self.chat.user2.id
-        receiver = await database_sync_to_async(User.objects.get)(id=other_user_id)
+        other_user_room = f"user_{other_user_id}"
 
-        if not receiver.is_online:
-            print(f"⚠️ Receiver {receiver.id} offline, skipping messages_read")
-            return
-
-        print(f"📨 Sending messages_read to user_{receiver.id}: {read_message_ids}")
-
-        # Har ikkala userga xabar yuborish
+        # Senderga "messages_read" event yuborish
         await self.channel_layer.group_send(
-            f"chat_{self.chat.id}",
+            other_user_room,
             {
                 "type": "messages_read",
                 "message_ids": read_message_ids,
@@ -410,7 +404,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
             }
         )
 
-        # is_read=True holatini real-time yangilash
+        # Oxirgi o‘qilgan xabarlarni "chat_message" qilib yangilab yuborish
         for msg_id in read_message_ids:
             message = await database_sync_to_async(
                 lambda: Message.objects.select_related("sender").get(id=msg_id)
@@ -421,7 +415,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
                     "type": "chat_message",
                     "message": message.content,
                     "sender": message.sender.id,
-                    "timestamp": to_user_timezone(message.created_at).isoformat(),
+                    "timestamp": to_user_timezone(message.created_at).isoformat(),  # timeeee
                     "is_read": True
                 }
             )
