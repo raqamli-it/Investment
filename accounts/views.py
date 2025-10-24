@@ -82,7 +82,7 @@ class RegisterView(generics.CreateAPIView):
 
             mail_subject = 'Verify your email address'
             message = f'Click here for confirm your registration.\nhttp://{domain}/accounts/email-activation/{uid}/{token}'
-            user.email_user(mail_subject, message)
+            user.email_user(mail_subject, message, fail_silently=True)
             # It'll be used in cellery END
 
             return Response('User created successfully')
