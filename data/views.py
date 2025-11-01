@@ -229,7 +229,7 @@ class AllDataViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Retr
         instance.save()  # O'zgartirishni saqlash
 
         # Serializer orqali ma'lumotni qaytarish
-        serializer = self.get_serializer(instance)
+        serializer = self.get_serializer(instance, context={'request': request})
         return Response(serializer.data, status=status.HTTP_200_OK)
 
 
