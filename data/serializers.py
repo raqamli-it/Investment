@@ -302,11 +302,20 @@ class AllDataSerializer(serializers.ModelSerializer):
         )
 
     def get_user(self, obj):
+        request = self.context.get('request')  # Request obyektini olish
         user = obj.user
+        photo_url = None
+
+        if getattr(user, "photo", None):
+            photo_url = user.photo.url
+            # Agar domain kerak bo‘lsa, absolute URL yasaymiz:
+            if request is not None:
+                photo_url = request.build_absolute_uri(photo_url)
+
         return {
             "id": user.id,
             "username": user.username,
-            "photo": user.photo.url if getattr(user, "photo", None) else None
+            "photo": photo_url
         }
 
 
