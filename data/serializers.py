@@ -284,8 +284,9 @@ class MainDataRetrieveSerializer(serializers.ModelSerializer):
 
 
 class AllDataSerializer(serializers.ModelSerializer):
+    user = serializers.SerializerMethodField()
     main_data = MainDataRetrieveSerializer()
-    informative_data = InformativeProDataSerializerGet()  # InformativeDataRetrieveSerializer() old version
+    informative_data = InformativeProDataSerializerGet()
     financial_data = FinancialDataRetrieveCustomSerializer()
 
     class Meta:
@@ -299,6 +300,14 @@ class AllDataSerializer(serializers.ModelSerializer):
             'status',
             'date_created',
         )
+
+    def get_user(self, obj):
+        user = obj.user
+        return {
+            "id": user.id,
+            "username": user.username,
+            "photo": user.photo.url if getattr(user, "photo", None) else None
+        }
 
 
 # !!!!!!!!!!!!
