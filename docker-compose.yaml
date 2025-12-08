@@ -5,7 +5,8 @@ services:
     build: .
     env_file:
       - .env
-    command: sh -c "python manage.py migrate && daphne -b 0.0.0.0 -p 8000 einvestment.asgi:application"
+    command: sh -c "python manage.py migrate && python manage.py collectstatic --noinput && python manage.py runserver 0.0.0.0:8000"
+#    command: sh -c "python manage.py migrate && daphne -b 0.0.0.0 -p 8000 einvestment.asgi:application"
     volumes:
       - .:/Einvestment
       - static_volume:/Einvestment/staticfiles
@@ -13,16 +14,16 @@ services:
     ports:
       - "8020:8000"
     depends_on:
-      - investment_db
+      - einvestment_db
       - redis
     restart: always
 
-  investment_db:
+  einvestment_db:
     image: postgres:latest
     environment:
-      POSTGRES_DB: investment
-      POSTGRES_USER: user_investment
-      POSTGRES_PASSWORD: password_investment
+      POSTGRES_DB: einvestment
+      POSTGRES_USER: user_einvestment
+      POSTGRES_PASSWORD: password_einvestment
     ports:
       - "5435:5432"
     volumes:

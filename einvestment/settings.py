@@ -153,10 +153,10 @@ CSRF_TRUSTED_ORIGINS = [
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'investment',
-        'USER': 'user_investment',
-        'PASSWORD': 'password_investment',
-        'HOST': 'investment_db',
+        'NAME': 'einvestment',
+        'USER': 'user_einvestment',
+        'PASSWORD': 'password_einvestment',
+        'HOST': 'einvestment_db',
         'PORT': 5432,
     }
 }
