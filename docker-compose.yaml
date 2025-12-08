@@ -13,16 +13,16 @@ services:
     ports:
       - "8020:8000"
     depends_on:
-      - einvestment_db
+      - investment_db
       - redis
     restart: always
 
-  einvestment_db:
+  investment_db:
     image: postgres:latest
     environment:
-      POSTGRES_DB: einvestment
-      POSTGRES_USER: user_einvestment
-      POSTGRES_PASSWORD: password_einvestment
+      POSTGRES_DB: investment
+      POSTGRES_USER: user_investment
+      POSTGRES_PASSWORD: password_investment
     ports:
       - "5435:5432"
     volumes:
