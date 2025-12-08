@@ -19,7 +19,7 @@ services:
     restart: always
 
   einvestment_db:
-    image: postgres:latest
+    image: postgres:17
     environment:
       POSTGRES_DB: einvestment
       POSTGRES_USER: user_einvestment
